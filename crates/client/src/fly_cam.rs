@@ -22,8 +22,8 @@ pub struct FlyCam {
 impl Default for FlyCam {
     fn default() -> Self {
         Self {
-            speed: 10.0,
-            sensitivity: 0.0016,
+            speed: 50.0,
+            sensitivity: 0.002,
             yaw: 0.0,
             pitch: 0.0,
         }
