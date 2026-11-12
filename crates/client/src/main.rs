@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+mod demo_world;
 mod fly_cam;
 
 fn main() {
@@ -12,6 +13,7 @@ fn main() {
             ..default()
         }))
         .add_plugins(fly_cam::FlyCamPlugin)
+        .add_plugins(demo_world::DemoWorldPlugin)
         .add_systems(Startup, setup_scene)
         .run();
 }
