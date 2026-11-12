@@ -1,5 +1,6 @@
 pub mod block;
 pub mod chunk;
+pub mod mesher;
 
 use std::{collections::HashMap, sync::Arc};
 

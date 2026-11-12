@@ -1,5 +1,5 @@
-#[derive(Clone, Copy, Default, Debug)]
-pub struct Block(u32);
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
+pub struct Block(pub u32);
 
 impl Block {
     pub const AIR: Self = Block(0);

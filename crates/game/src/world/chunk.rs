@@ -1,5 +1,8 @@
 use crate::world::block::Block;
-use bevy::math::UVec3;
+use bevy::prelude::*;
+
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ChunkPos(pub IVec3);
 
 #[derive(Clone)]
 pub struct Chunk {
