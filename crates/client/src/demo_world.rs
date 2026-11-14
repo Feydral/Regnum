@@ -15,7 +15,10 @@ pub struct DemoWorldPlugin;
 
 impl Plugin for DemoWorldPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (spawn_demo_world, spawn_chunks).chain());
+        app.add_systems(
+            Startup,
+            (spawn_demo_world, spawn_chunks, mesh_chunks).chain(),
+        );
     }
 }
 
@@ -34,39 +37,52 @@ fn spawn_demo_world(mut commands: Commands, mut ambient: ResMut<GlobalAmbientLig
     ));
 }
 
-fn spawn_chunks(
+fn spawn_chunks(mut commands: Commands, world: Single<(Entity, &mut VoxelWorld)>) {
+    let (world_entity, mut world) = world.into_inner();
+
+    for x in -3..3 {
+        for y in -3..3 {
+            for z in -3..3 {
+                let chunk_position = IVec3::new(x, y, z);
+                world.insert_chunk(chunk_position, demo_chunk(chunk_position));
+                commands.spawn((
+                    ChunkPos(chunk_position),
+                    Transform::from_translation(VoxelWorld::chunk_origin(chunk_position).as_vec3()),
+                    ChildOf(world_entity),
+                ));
+            }
+        }
+    }
+}
+
+fn mesh_chunks(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    world: Single<(Entity, &mut VoxelWorld)>,
+    world: Single<&VoxelWorld>,
+    chunks: Query<(Entity, &ChunkPos)>,
 ) {
-    let (world_entity, mut world) = world.into_inner();
-
     let material = materials.add(StandardMaterial {
         perceptual_roughness: 1.0,
         reflectance: 0.0,
         ..default()
     });
 
-    for x in -3..3 {
-        for y in -3..3 {
-            for z in -3..3 {
-                let chunk_position = IVec3::new(x, y, z);
+    for (entity, position) in &chunks {
+        let Some(center) = world.chunk(position.0) else {
+            continue;
+        };
+        let neighbors = game::world::mesher::NEIGHBOR_DIRS.map(|d| world.chunk(position.0 + d));
 
-                world.insert_chunk(chunk_position, demo_chunk(chunk_position));
-
-                let snapshot = world.chunk_arc(chunk_position).unwrap();
-                let buffers = mesh_chunk(&snapshot, [None; 6]);
-
-                commands.spawn((
-                    ChunkPos(chunk_position),
-                    Mesh3d(meshes.add(to_bevy_mesh(&buffers))),
-                    MeshMaterial3d(material.clone()),
-                    Transform::from_translation(VoxelWorld::chunk_origin(chunk_position).as_vec3()),
-                    ChildOf(world_entity),
-                ));
-            }
+        let buffers = mesh_chunk(center, neighbors);
+        if buffers.is_empty() {
+            continue;
         }
+
+        commands.entity(entity).insert((
+            Mesh3d(meshes.add(to_bevy_mesh(&buffers))),
+            MeshMaterial3d(material.clone()),
+        ));
     }
 }
 
