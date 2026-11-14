@@ -11,7 +11,8 @@ use game::world::{
     mesher::{MeshBuffers, mesh_chunk},
 };
 
-use crate::demo_texturing::{TILES, build_atlas, tile_index};
+use crate::demo_texturing::{build_tile_array, tile_index};
+use crate::material::VoxelMaterial;
 
 pub struct DemoWorldPlugin;
 
@@ -60,16 +61,13 @@ fn spawn_chunks(mut commands: Commands, world: Single<(Entity, &mut VoxelWorld)>
 fn mesh_chunks(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: ResMut<Assets<VoxelMaterial>>,
     mut images: ResMut<Assets<Image>>,
     world: Single<&VoxelWorld>,
     chunks: Query<(Entity, &ChunkPos)>,
 ) {
-    let material = materials.add(StandardMaterial {
-        base_color_texture: Some(images.add(build_atlas())),
-        perceptual_roughness: 1.0,
-        reflectance: 0.0,
-        ..default()
+    let material = materials.add(VoxelMaterial {
+        tiles: images.add(build_tile_array()),
     });
 
     for (entity, position) in &chunks {
@@ -119,12 +117,9 @@ fn demo_chunk(pos: IVec3) -> Chunk {
 }
 
 fn to_bevy_mesh(b: &MeshBuffers) -> Mesh {
-    let uvs: Vec<[f32; 2]> = (0..b.positions.len())
-        .map(|i| {
-            let tile = tile_index(b.block_ids[i], b.faces[i]) as f32;
-            let [u, v] = b.uvs[i];
-            [(tile + u) / TILES as f32, 1.0 - v]
-        })
+    let uvs: Vec<[f32; 2]> = b.uvs.iter().map(|&[u, v]| [u, 1.0 - v]).collect();
+    let layers: Vec<[f32; 4]> = (0..b.positions.len())
+        .map(|i| [tile_index(b.block_ids[i], b.faces[i]) as f32, 0.0, 0.0, 1.0])
         .collect();
 
     let mut mesh = Mesh::new(
@@ -134,6 +129,7 @@ fn to_bevy_mesh(b: &MeshBuffers) -> Mesh {
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, b.positions.clone());
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, b.normals.clone());
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, layers);
     mesh.insert_indices(Indices::U32(b.indices.clone()));
     mesh
 }

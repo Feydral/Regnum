@@ -16,7 +16,7 @@ pub fn tile_index(block: u32, face: u32) -> u32 {
     }
 }
 
-pub fn tile_pixel(tile: u32, x: u32, y: u32) -> [u8; 4] {
+fn tile_pixel(tile: u32, x: u32, y: u32) -> [u8; 4] {
     let base: [f32; 3] = match tile {
         0 => [0.30, 0.65, 0.25],
         1 => {
@@ -44,17 +44,19 @@ pub fn tile_pixel(tile: u32, x: u32, y: u32) -> [u8; 4] {
     ]
 }
 
-pub fn build_atlas() -> Image {
-    let mut data = Vec::with_capacity((TILE * TILES * TILE * 4) as usize);
-    for y in 0..TILE {
-        for x in 0..TILE * TILES {
-            data.extend_from_slice(&tile_pixel(x / TILE, x % TILE, y));
+pub fn build_tile_array() -> Image {
+    let mut data = Vec::with_capacity((TILE * TILE * TILES * 4) as usize);
+    for tile in 0..TILES {
+        for y in 0..TILE {
+            for x in 0..TILE {
+                data.extend_from_slice(&tile_pixel(tile, x, y));
+            }
         }
     }
     let mut image = Image::new(
         Extent3d {
-            width: TILE * TILES,
-            height: TILE,
+            width: TILE,
+            height: TILE * TILES,
             depth_or_array_layers: 1,
         },
         TextureDimension::D2,
@@ -62,6 +64,7 @@ pub fn build_atlas() -> Image {
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::default(),
     );
+    image.reinterpret_stacked_2d_as_array(TILES).unwrap();
     image.sampler = ImageSampler::nearest();
     image
 }
