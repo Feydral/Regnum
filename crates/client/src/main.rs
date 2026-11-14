@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+mod demo_texturing;
 mod demo_world;
 mod fly_cam;
 

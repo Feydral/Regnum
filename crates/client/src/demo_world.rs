@@ -11,6 +11,8 @@ use game::world::{
     mesher::{MeshBuffers, mesh_chunk},
 };
 
+use crate::demo_texturing::{TILES, build_atlas, tile_index};
+
 pub struct DemoWorldPlugin;
 
 impl Plugin for DemoWorldPlugin {
@@ -59,10 +61,12 @@ fn mesh_chunks(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut images: ResMut<Assets<Image>>,
     world: Single<&VoxelWorld>,
     chunks: Query<(Entity, &ChunkPos)>,
 ) {
     let material = materials.add(StandardMaterial {
+        base_color_texture: Some(images.add(build_atlas())),
         perceptual_roughness: 1.0,
         reflectance: 0.0,
         ..default()
@@ -115,7 +119,13 @@ fn demo_chunk(pos: IVec3) -> Chunk {
 }
 
 fn to_bevy_mesh(b: &MeshBuffers) -> Mesh {
-    let colors: Vec<[f32; 4]> = b.block_ids.iter().map(|&id| block_color(id)).collect();
+    let uvs: Vec<[f32; 2]> = (0..b.positions.len())
+        .map(|i| {
+            let tile = tile_index(b.block_ids[i], b.faces[i]) as f32;
+            let [u, v] = b.uvs[i];
+            [(tile + u) / TILES as f32, 1.0 - v]
+        })
+        .collect();
 
     let mut mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
@@ -123,17 +133,7 @@ fn to_bevy_mesh(b: &MeshBuffers) -> Mesh {
     );
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, b.positions.clone());
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, b.normals.clone());
-    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
     mesh.insert_indices(Indices::U32(b.indices.clone()));
     mesh
-}
-
-fn block_color(id: u32) -> [f32; 4] {
-    match id {
-        1 => [0.30, 0.65, 0.25, 1.0],
-
-        2 => [0.45, 0.30, 0.18, 1.0],
-        3 => [0.5, 0.5, 0.52, 1.0],
-        _ => [1.0, 0.0, 1.0, 1.0],
-    }
 }
