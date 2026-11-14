@@ -1,13 +1,14 @@
 pub mod block;
 pub mod chunk;
-pub mod mesher;
+pub mod registry;
 
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 
-use bevy::ecs::component::Component;
-use bevy::math::{IVec3, UVec3};
+use bevy::prelude::*;
 
-use crate::world::{block::Block, chunk::Chunk};
+use block::Block;
+use chunk::Chunk;
 
 #[derive(Component, Default)]
 pub struct VoxelWorld {
@@ -57,15 +58,19 @@ impl VoxelWorld {
         self.chunks.remove(&pos)
     }
 
+    pub fn chunk_positions(&self) -> impl Iterator<Item = IVec3> + '_ {
+        self.chunks.keys().copied()
+    }
+
     pub fn block(&self, p: IVec3) -> Option<Block> {
         self.chunk(Self::world_to_chunk(p))?
             .get(Self::world_to_local(p))
     }
 
-    pub fn set_block(&mut self, p: IVec3, id: Block) -> bool {
+    pub fn set_block(&mut self, p: IVec3, block: Block) -> bool {
         let Some(chunk) = self.chunks.get_mut(&Self::world_to_chunk(p)) else {
             return false;
         };
-        Arc::make_mut(chunk).set(Self::world_to_local(p), id)
+        Arc::make_mut(chunk).set(Self::world_to_local(p), block)
     }
 }

@@ -33,7 +33,7 @@ impl Default for FlyCam {
 fn spawn_camera(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 3.0, 12.0),
+        Transform::from_xyz(0.0, 50.0, 120.0),
         FlyCam::default(),
     ));
 }

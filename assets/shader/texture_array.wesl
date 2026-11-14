@@ -2,6 +2,7 @@ import bevy_pbr::render::forward_io::VertexOutput;
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var tiles: texture_2d_array<f32>;
 @group(constants::MATERIAL_BIND_GROUP) @binding(1) var tiles_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(2) var<uniform> tint: vec4<f32>;
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
@@ -18,5 +19,5 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         shade = 0.7;
     }
 
-    return vec4<f32>(texel.rgb * shade, 1.0);
+    return vec4<f32>(texel.rgb * shade * tint.rgb, texel.a * tint.a);
 }

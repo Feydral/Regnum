@@ -6,3 +6,7 @@ edition = "2024"
 [dependencies]
 bevy = "0.20.1"
 game = { path = "../game" }
+image = { version = "0.25", default-features = false, features = ["png"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"

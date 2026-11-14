@@ -1,0 +1,25 @@
+{
+  "name": "dirt_block",
+  "properties": [],
+  "states": [
+    {
+      "when": {},
+      "collision_shape": "full",
+      "model": {
+        "cube_uniform": {
+          "uv": {
+            "min": [
+              16,
+              0
+            ],
+            "max": [
+              32,
+              0
+            ]
+          }
+        }
+      },
+      "mesh_type": "opaque"
+    }
+  ]
+}

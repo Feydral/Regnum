@@ -3,4 +3,5 @@ resolver = "3"
 members = ["crates/*"]
 
 [profile.dev.package."*"]
-opt-level = 3 
+opt-level = 3
+

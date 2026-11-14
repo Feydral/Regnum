@@ -1,18 +1,18 @@
 use bevy::asset::RenderAssetUsages;
-use bevy::light::GlobalAmbientLight;
-use bevy::math::UVec3;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
-
 use game::world::{
     VoxelWorld,
     block::Block,
     chunk::{Chunk, ChunkPos},
-    mesher::{MeshBuffers, mesh_chunk},
+    registry::BlockRegistry,
 };
 
-use crate::demo_texturing::{build_tile_array, tile_index};
-use crate::material::VoxelMaterial;
+use crate::mesher::{MeshBuffers, mesh_chunk};
+use crate::models::{BlockModels, SIDE_DIRS};
+use crate::visuals::BlockMaterials;
+
+const SEA_LEVEL: i32 = 26;
 
 pub struct DemoWorldPlugin;
 
@@ -25,14 +25,32 @@ impl Plugin for DemoWorldPlugin {
     }
 }
 
-fn spawn_demo_world(mut commands: Commands, mut ambient: ResMut<GlobalAmbientLight>) {
-    ambient.brightness = 500.0;
+struct TerrainBlocks {
+    grass: Block,
+    dirt: Block,
+    stone: Block,
+    water: Block,
+}
 
-    commands.spawn((
-        DirectionalLight::default(),
-        Transform::from_xyz(4.0, 10.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
-    ));
+impl TerrainBlocks {
+    fn new(registry: &BlockRegistry) -> Self {
+        let block = |name: &str| {
+            registry
+                .block(name)
+                .unwrap_or_else(|| panic!("missing block definition: {name}"))
+        };
+        Self {
+            grass: block("grass_block"),
+            dirt: block("dirt_block"),
+            stone: block("stone_block"),
+            water: registry
+                .block_with("water", &[("level", 16)])
+                .expect("missing block definition: water"),
+        }
+    }
+}
 
+fn spawn_demo_world(mut commands: Commands) {
     commands.spawn((
         VoxelWorld::new(),
         Transform::default(),
@@ -40,17 +58,23 @@ fn spawn_demo_world(mut commands: Commands, mut ambient: ResMut<GlobalAmbientLig
     ));
 }
 
-fn spawn_chunks(mut commands: Commands, world: Single<(Entity, &mut VoxelWorld)>) {
+fn spawn_chunks(
+    mut commands: Commands,
+    registry: Res<BlockRegistry>,
+    world: Single<(Entity, &mut VoxelWorld)>,
+) {
     let (world_entity, mut world) = world.into_inner();
+    let blocks = TerrainBlocks::new(&registry);
 
     for x in -3..3 {
-        for y in -3..3 {
+        for y in 0..2 {
             for z in -3..3 {
-                let chunk_position = IVec3::new(x, y, z);
-                world.insert_chunk(chunk_position, demo_chunk(chunk_position));
+                let pos = IVec3::new(x, y, z);
+                world.insert_chunk(pos, demo_chunk(pos, &blocks));
                 commands.spawn((
-                    ChunkPos(chunk_position),
-                    Transform::from_translation(VoxelWorld::chunk_origin(chunk_position).as_vec3()),
+                    ChunkPos(pos),
+                    Transform::from_translation(VoxelWorld::chunk_origin(pos).as_vec3()),
+                    Visibility::default(),
                     ChildOf(world_entity),
                 ));
             }
@@ -61,34 +85,35 @@ fn spawn_chunks(mut commands: Commands, world: Single<(Entity, &mut VoxelWorld)>
 fn mesh_chunks(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<VoxelMaterial>>,
-    mut images: ResMut<Assets<Image>>,
+    models: Res<BlockModels>,
+    materials: Res<BlockMaterials>,
     world: Single<&VoxelWorld>,
     chunks: Query<(Entity, &ChunkPos)>,
 ) {
-    let material = materials.add(VoxelMaterial {
-        tiles: images.add(build_tile_array()),
-    });
-
     for (entity, position) in &chunks {
         let Some(center) = world.chunk(position.0) else {
             continue;
         };
-        let neighbors = game::world::mesher::NEIGHBOR_DIRS.map(|d| world.chunk(position.0 + d));
+        let neighbors = SIDE_DIRS.map(|dir| world.chunk(position.0 + dir));
+        let data = mesh_chunk(center, neighbors, &models);
 
-        let buffers = mesh_chunk(center, neighbors);
-        if buffers.is_empty() {
-            continue;
+        if !data.opaque.is_empty() {
+            commands.entity(entity).insert((
+                Mesh3d(meshes.add(to_bevy_mesh(&data.opaque))),
+                MeshMaterial3d(materials.opaque.clone()),
+            ));
         }
-
-        commands.entity(entity).insert((
-            Mesh3d(meshes.add(to_bevy_mesh(&buffers))),
-            MeshMaterial3d(material.clone()),
-        ));
+        if !data.transparent.is_empty() {
+            let mesh = meshes.add(to_bevy_mesh(&data.transparent));
+            let material = materials.transparent.clone();
+            commands.entity(entity).with_children(|parent| {
+                parent.spawn((Mesh3d(mesh), MeshMaterial3d(material)));
+            });
+        }
     }
 }
 
-fn demo_chunk(pos: IVec3) -> Chunk {
+fn demo_chunk(pos: IVec3, blocks: &TerrainBlocks) -> Chunk {
     let origin = pos * Chunk::SIZE as i32;
     let mut chunk = Chunk::new();
 
@@ -101,13 +126,16 @@ fn demo_chunk(pos: IVec3) -> Chunk {
             for y in 0..Chunk::SIZE as u32 {
                 let wy = origin.y + y as i32;
                 let block = if wy > h {
-                    continue;
+                    if wy > SEA_LEVEL {
+                        continue;
+                    }
+                    blocks.water
                 } else if wy == h {
-                    Block::GRASS
+                    blocks.grass
                 } else if wy >= h - 3 {
-                    Block::DIRT
+                    blocks.dirt
                 } else {
-                    Block::STONE
+                    blocks.stone
                 };
                 chunk.set(UVec3::new(x, y, z), block);
             }
@@ -116,20 +144,21 @@ fn demo_chunk(pos: IVec3) -> Chunk {
     chunk
 }
 
-fn to_bevy_mesh(b: &MeshBuffers) -> Mesh {
-    let uvs: Vec<[f32; 2]> = b.uvs.iter().map(|&[u, v]| [u, 1.0 - v]).collect();
-    let layers: Vec<[f32; 4]> = (0..b.positions.len())
-        .map(|i| [tile_index(b.block_ids[i], b.faces[i]) as f32, 0.0, 0.0, 1.0])
+fn to_bevy_mesh(buffers: &MeshBuffers) -> Mesh {
+    let layers: Vec<[f32; 4]> = buffers
+        .layers
+        .iter()
+        .map(|&layer| [layer as f32, 0.0, 0.0, 1.0])
         .collect();
 
     let mut mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::default(),
     );
-    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, b.positions.clone());
-    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, b.normals.clone());
-    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, buffers.positions.clone());
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, buffers.normals.clone());
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, buffers.uvs.clone());
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, layers);
-    mesh.insert_indices(Indices::U32(b.indices.clone()));
+    mesh.insert_indices(Indices::U32(buffers.indices.clone()));
     mesh
 }

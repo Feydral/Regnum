@@ -1,5 +1,6 @@
-use crate::world::block::Block;
 use bevy::prelude::*;
+
+use super::block::Block;
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ChunkPos(pub IVec3);
@@ -29,17 +30,23 @@ impl Chunk {
         Self::index(local).map(|i| self.blocks[i])
     }
 
-    pub fn set(&mut self, local: UVec3, id: Block) -> bool {
+    pub fn set(&mut self, local: UVec3, block: Block) -> bool {
         match Self::index(local) {
             Some(i) => {
-                self.blocks[i] = id;
+                self.blocks[i] = block;
                 true
             }
             None => false,
         }
     }
 
-    pub fn fill(&mut self, id: Block) {
-        self.blocks.fill(id);
+    pub fn fill(&mut self, block: Block) {
+        self.blocks.fill(block);
+    }
+}
+
+impl Default for Chunk {
+    fn default() -> Self {
+        Self::new()
     }
 }

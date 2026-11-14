@@ -1,0 +1,57 @@
+{
+  "name": "water",
+  "properties": [
+    {
+      "name": "level",
+      "values": 17
+    }
+  ],
+  "states": [
+    {
+      "when": { "level": 0 },
+      "collision_shape": "empty",
+      "model": "empty",
+      "mesh_type": "none"
+    },
+    {
+      "when": {},
+      "collision_shape": {
+        "boxes": [
+          {
+            "min_x": 0, "min_y": 0, "min_z": 0,
+            "max_x": 16, "max_y": { "property": "level" }, "max_z": 16
+          }
+        ]
+      },
+      "model": {
+        "custom": [
+          {
+            "positions": [[0, 0, 0], [16, 0, 0], [16, 0, 16], [0, 0, 16]],
+            "uv": { "min": [16, 16], "max": [32, 32] }
+          },
+          {
+            "positions": [[0, { "property": "level" }, 0], [0, { "property": "level" }, 16], [16, { "property": "level" }, 16], [16, { "property": "level" }, 0]],
+            "uv": { "min": [16, 16], "max": [32, 32] }
+          },
+          {
+            "positions": [[0, 0, 0], [0, 0, 16], [0, { "property": "level" }, 16], [0, { "property": "level" }, 0]],
+            "uv": { "min": [16, 16], "max": [32, 32] }
+          },
+          {
+            "positions": [[16, 0, 16], [16, 0, 0], [16, { "property": "level" }, 0], [16, { "property": "level" }, 16]],
+            "uv": { "min": [16, 16], "max": [32, 32] }
+          },
+          {
+            "positions": [[16, 0, 0], [0, 0, 0], [0, { "property": "level" }, 0], [16, { "property": "level" }, 0]],
+            "uv": { "min": [16, 16], "max": [32, 32] }
+          },
+          {
+            "positions": [[0, 0, 16], [16, 0, 16], [16, { "property": "level" }, 16], [0, { "property": "level" }, 16]],
+            "uv": { "min": [16, 16], "max": [32, 32] }
+          }
+        ]
+      },
+      "mesh_type": "transparent"
+    }
+  ]
+}

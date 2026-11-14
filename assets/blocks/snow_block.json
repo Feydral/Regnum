@@ -1,0 +1,25 @@
+{
+  "name": "snow_block",
+  "properties": [],
+  "states": [
+    {
+      "when": {},
+      "collision_shape": "full",
+      "model": {
+        "cube_uniform": {
+          "uv": {
+            "min": [
+              0,
+              16
+            ],
+            "max": [
+              16,
+              32
+            ]
+          }
+        }
+      },
+      "mesh_type": "opaque"
+    }
+  ]
+}

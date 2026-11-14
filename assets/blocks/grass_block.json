@@ -1,0 +1,45 @@
+{
+  "name": "grass_block",
+  "properties": [],
+  "states": [
+    {
+      "when": {},
+      "collision_shape": "full",
+      "model": {
+        "cube_top_bottom_side": {
+          "top": {
+            "min": [
+              48,
+              0
+            ],
+            "max": [
+              64,
+              16
+            ]
+          },
+          "bottom": {
+            "min": [
+              16,
+              0
+            ],
+            "max": [
+              32,
+              16
+            ]
+          },
+          "side": {
+            "min": [
+              32,
+              0
+            ],
+            "max": [
+              48,
+              16
+            ]
+          }
+        }
+      },
+      "mesh_type": "opaque"
+    }
+  ]
+}
