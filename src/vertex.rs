@@ -24,7 +24,7 @@ impl Vertex {
 
 pub const VERTICES: &[Vertex] = &[
     Vertex {
-        position: Vec3::new(0.0, 0.5, 0.0),
+        position: Vec3::new(-0.5, 0.5, 0.0),
         color: Vec3::new(1.0, 0.0, 0.0),
     },
     Vertex {
@@ -35,4 +35,10 @@ pub const VERTICES: &[Vertex] = &[
         position: Vec3::new(0.5, -0.5, 0.0),
         color: Vec3::new(0.0, 0.0, 1.0),
     },
+    Vertex {
+        position: Vec3::new(0.5, 0.5, 0.0),
+        color: Vec3::new(1.0, 1.0, 0.0),
+    },
 ];
+
+pub const INDICES: &[u16] = &[0, 1, 2, 0, 2, 3];

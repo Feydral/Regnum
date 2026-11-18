@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use wgpu::util::DeviceExt;
 use winit::{event_loop::ActiveEventLoop, window::Window};
 
-use crate::vertex::{VERTICES, Vertex};
+use crate::vertex::{INDICES, VERTICES, Vertex};
 
 pub struct Renderer {
     instance: wgpu::Instance,
@@ -16,6 +16,7 @@ pub struct Renderer {
 
     pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
 }
 
 impl Renderer {
@@ -49,6 +50,12 @@ impl Renderer {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(VERTICES),
             usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(INDICES),
+            usage: wgpu::BufferUsages::INDEX,
         });
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -120,6 +127,7 @@ impl Renderer {
             config,
             pipeline,
             vertex_buffer,
+            index_buffer,
         })
     }
 
@@ -198,8 +206,9 @@ impl Renderer {
             render_pass.set_pipeline(&self.pipeline);
 
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-            render_pass.draw(0..VERTICES.len() as u32, 0..1);
+            render_pass.draw_indexed(0..INDICES.len() as u32, 0, 0..1);
         }
 
         self.queue.submit([encoder.finish()]);
