@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use wgpu::util::DeviceExt;
 use winit::{event_loop::ActiveEventLoop, window::Window};
 
 use crate::{
     camera::{Camera, GpuCamera},
     depth::{DEPTH_FORMAT, DepthTexture},
-    vertex::{Vertex, cube},
+    mesh::{GpuMesh, Mesh},
+    vertex::Vertex,
 };
 
 pub struct Renderer {
@@ -21,9 +21,7 @@ pub struct Renderer {
     depth: DepthTexture,
     pipeline: wgpu::RenderPipeline,
     camera: GpuCamera,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    index_count: u32,
+    mesh: GpuMesh,
 }
 
 impl Renderer {
@@ -56,19 +54,7 @@ impl Renderer {
         let depth = DepthTexture::new(&device, config.width, config.height);
         let camera = GpuCamera::new(&device);
 
-        let (vertices, indices) = cube(0.5);
-
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(&vertices),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(&indices),
-            usage: wgpu::BufferUsages::INDEX,
-        });
+        let mesh = GpuMesh::new(&device, &Mesh::cube(0.5));
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Triangle Shader"),
@@ -158,9 +144,7 @@ impl Renderer {
             depth,
             pipeline,
             camera,
-            vertex_buffer,
-            index_buffer,
-            index_count: indices.len() as u32,
+            mesh,
         })
     }
 
@@ -252,10 +236,8 @@ impl Renderer {
 
             render_pass.set_pipeline(&self.pipeline);
             render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-            render_pass.draw_indexed(0..self.index_count, 0, 0..1);
+            self.mesh.draw(&mut render_pass);
         }
 
         self.queue.submit([encoder.finish()]);

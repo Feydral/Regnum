@@ -1,5 +1,6 @@
 mod camera;
 mod depth;
+mod mesh;
 mod renderer;
 mod vertex;
 
