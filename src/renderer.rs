@@ -6,7 +6,8 @@ use winit::{event_loop::ActiveEventLoop, window::Window};
 
 use crate::{
     camera::{Camera, GpuCamera},
-    vertex::{INDICES, VERTICES, Vertex},
+    depth::{DEPTH_FORMAT, DepthTexture},
+    vertex::{Vertex, cube},
 };
 
 pub struct Renderer {
@@ -17,10 +18,12 @@ pub struct Renderer {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
 
+    depth: DepthTexture,
     pipeline: wgpu::RenderPipeline,
     camera: GpuCamera,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
+    index_count: u32,
 }
 
 impl Renderer {
@@ -50,17 +53,20 @@ impl Renderer {
 
         surface.configure(&device, &config);
 
+        let depth = DepthTexture::new(&device, config.width, config.height);
         let camera = GpuCamera::new(&device);
+
+        let (vertices, indices) = cube(0.5);
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
+            contents: bytemuck::cast_slice(&vertices),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(INDICES),
+            contents: bytemuck::cast_slice(&indices),
             usage: wgpu::BufferUsages::INDEX,
         });
 
@@ -130,7 +136,13 @@ impl Renderer {
             }),
 
             primitive: wgpu::PrimitiveState::default(),
-            depth_stencil: None,
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: DEPTH_FORMAT,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(wgpu::CompareFunction::Greater),
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
             cache: None,
@@ -143,10 +155,12 @@ impl Renderer {
             device,
             queue,
             config,
+            depth,
             pipeline,
             camera,
             vertex_buffer,
             index_buffer,
+            index_count: indices.len() as u32,
         })
     }
 
@@ -159,6 +173,7 @@ impl Renderer {
         self.config.height = height;
 
         self.surface.configure(&self.device, &self.config);
+        self.depth = DepthTexture::new(&self.device, width, height);
     }
 
     pub fn aspect(&self) -> f32 {
@@ -222,7 +237,14 @@ impl Renderer {
                     },
                 })],
 
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(0.0),
+                        store: wgpu::StoreOp::Discard,
+                    }),
+                    stencil_ops: None,
+                }),
                 timestamp_writes: None,
                 occlusion_query_set: None,
                 multiview_mask: None,
@@ -233,7 +255,7 @@ impl Renderer {
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-            render_pass.draw_indexed(0..INDICES.len() as u32, 0, 0..1);
+            render_pass.draw_indexed(0..self.index_count, 0, 0..1);
         }
 
         self.queue.submit([encoder.finish()]);
