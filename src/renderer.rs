@@ -4,7 +4,10 @@ use anyhow::{Context, Result};
 use wgpu::util::DeviceExt;
 use winit::{event_loop::ActiveEventLoop, window::Window};
 
-use crate::vertex::{INDICES, VERTICES, Vertex};
+use crate::{
+    camera::{Camera, GpuCamera},
+    vertex::{INDICES, VERTICES, Vertex},
+};
 
 pub struct Renderer {
     instance: wgpu::Instance,
@@ -15,6 +18,7 @@ pub struct Renderer {
     config: wgpu::SurfaceConfiguration,
 
     pipeline: wgpu::RenderPipeline,
+    camera: GpuCamera,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
 }
@@ -46,6 +50,8 @@ impl Renderer {
 
         surface.configure(&device, &config);
 
+        let camera = GpuCamera::new(&device);
+
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(VERTICES),
@@ -67,13 +73,19 @@ impl Renderer {
                         @location(0) color: vec3<f32>,
                     };
 
+                    struct Camera {
+                        view_proj: mat4x4<f32>,
+                    };
+
+                    @group(0) @binding(0) var<uniform> camera: Camera;
+
                     @vertex
                     fn vs_main(
                         @location(0) position: vec3<f32>,
                         @location(1) color: vec3<f32>
                     ) -> VertexOutput {
                         var output: VertexOutput;
-                        output.position = vec4<f32>(position, 1.0);
+                        output.position = camera.view_proj * vec4<f32>(position, 1.0);
                         output.color = color;
                         return output;
                     }
@@ -89,9 +101,15 @@ impl Renderer {
             ),
         });
 
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Pipeline Layout"),
+            bind_group_layouts: &[Some(&camera.layout)],
+            immediate_size: 0,
+        });
+
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Triangle Pipeline"),
-            layout: None,
+            layout: Some(&pipeline_layout),
 
             vertex: wgpu::VertexState {
                 module: &shader,
@@ -126,6 +144,7 @@ impl Renderer {
             queue,
             config,
             pipeline,
+            camera,
             vertex_buffer,
             index_buffer,
         })
@@ -142,7 +161,11 @@ impl Renderer {
         self.surface.configure(&self.device, &self.config);
     }
 
-    pub fn render(&mut self) -> Result<()> {
+    pub fn aspect(&self) -> f32 {
+        self.config.width as f32 / self.config.height as f32
+    }
+
+    pub fn render(&mut self, camera: &Camera) -> Result<()> {
         let surface_texture = match self.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(texture) => texture,
 
@@ -172,6 +195,8 @@ impl Renderer {
                 anyhow::bail!("Surface validation error");
             }
         };
+
+        self.camera.update(&self.queue, camera, self.aspect());
 
         let view = surface_texture
             .texture
@@ -204,7 +229,7 @@ impl Renderer {
             });
 
             render_pass.set_pipeline(&self.pipeline);
-
+            render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
