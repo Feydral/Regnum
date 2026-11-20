@@ -1401,6 +1401,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "regnum-app"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "pollster",
+ "regnum-assets",
+ "regnum-renderer",
+ "tracing",
+ "winit",
+]
+
+[[package]]
 name = "regnum-assets"
 version = "0.1.0"
 
@@ -1410,11 +1422,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "glam",
- "pollster",
+ "regnum-app",
  "regnum-assets",
  "regnum-renderer",
- "tracing",
- "winit",
 ]
 
 [[package]]
