@@ -1401,7 +1401,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "regnum"
+name = "regnum-client"
 version = "0.1.0"
 dependencies = [
  "anyhow",
