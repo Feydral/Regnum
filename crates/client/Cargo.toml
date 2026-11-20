@@ -5,10 +5,9 @@ edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-bytemuck.workspace = true
 glam.workspace = true
 pollster.workspace = true
 regnum-assets.workspace = true
+regnum-renderer.workspace = true
 tracing.workspace = true
-wgpu.workspace = true
 winit.workspace = true

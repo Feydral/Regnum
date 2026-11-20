@@ -1,0 +1,12 @@
+[package]
+name = "regnum-renderer"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+bytemuck.workspace = true
+glam.workspace = true
+regnum-assets.workspace = true
+wgpu.workspace = true
+winit.workspace = true

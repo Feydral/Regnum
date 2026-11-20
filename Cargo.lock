@@ -1409,11 +1409,22 @@ name = "regnum-client"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bytemuck",
  "glam",
  "pollster",
  "regnum-assets",
+ "regnum-renderer",
  "tracing",
+ "winit",
+]
+
+[[package]]
+name = "regnum-renderer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytemuck",
+ "glam",
+ "regnum-assets",
  "wgpu",
  "winit",
 ]

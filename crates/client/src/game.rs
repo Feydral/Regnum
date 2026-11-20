@@ -1,12 +1,9 @@
 use glam::Vec3;
 use regnum_assets::{AssetManager, Handle};
+use regnum_renderer::{Camera, Frame, Mesh};
 use winit::keyboard::KeyCode;
 
-use crate::{
-    camera::{Camera, CameraController},
-    frame::Frame,
-    mesh::Mesh,
-};
+use crate::camera_controller::CameraController;
 
 pub struct Game {
     camera: Camera,

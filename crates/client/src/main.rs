@@ -1,16 +1,9 @@
-mod camera;
-mod depth;
-mod frame;
+mod camera_controller;
 mod game;
-mod gpu_assets;
-mod mesh;
-mod renderer;
-mod vertex;
 
 use std::{sync::Arc, time::Instant};
 
 use anyhow::Result;
-use renderer::Renderer;
 
 use winit::{
     application::ApplicationHandler,
@@ -22,6 +15,7 @@ use winit::{
 
 use game::Game;
 use regnum_assets::AssetManager;
+use regnum_renderer::Renderer;
 
 struct App {
     window: Option<Arc<Window>>,
