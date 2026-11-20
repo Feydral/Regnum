@@ -4,6 +4,7 @@ use glam::{
 };
 use winit::keyboard::KeyCode;
 
+#[derive(Clone)]
 pub struct Camera {
     pub position: Vec3,
     pub yaw: f32,

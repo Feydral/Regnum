@@ -5,9 +5,9 @@ use winit::{event_loop::ActiveEventLoop, window::Window};
 
 use crate::{
     asset_manager::AssetManager,
-    assets::Handle,
-    camera::{Camera, GpuCamera},
+    camera::GpuCamera,
     depth::{DEPTH_FORMAT, DepthTexture},
+    frame::Frame,
     gpu_assets::GpuAssets,
     mesh::Mesh,
     vertex::Vertex,
@@ -165,12 +165,7 @@ impl Renderer {
         self.config.width as f32 / self.config.height as f32
     }
 
-    pub fn render(
-        &mut self,
-        camera: &Camera,
-        assets: &mut AssetManager,
-        mesh: Handle<Mesh>,
-    ) -> Result<()> {
+    pub fn render(&mut self, frame: &Frame, assets: &mut AssetManager) -> Result<()> {
         let surface_texture = match self.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(texture) => texture,
 
@@ -203,7 +198,8 @@ impl Renderer {
 
         self.gpu_meshes
             .sync(&self.device, &self.queue, assets.meshes_mut());
-        self.camera.update(&self.queue, camera, self.aspect());
+        self.camera
+            .update(&self.queue, &frame.camera, self.aspect());
 
         let view = surface_texture
             .texture
@@ -245,8 +241,10 @@ impl Renderer {
             render_pass.set_pipeline(&self.pipeline);
             render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
 
-            if let Some(gpu_mesh) = self.gpu_meshes.get(mesh) {
-                gpu_mesh.draw(&mut render_pass);
+            for handle in &frame.meshes {
+                if let Some(gpu_mesh) = self.gpu_meshes.get(*handle) {
+                    gpu_mesh.draw(&mut render_pass);
+                }
             }
         }
 

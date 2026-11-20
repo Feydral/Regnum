@@ -2,6 +2,8 @@ mod asset_manager;
 mod assets;
 mod camera;
 mod depth;
+mod frame;
+mod game;
 mod gpu_assets;
 mod mesh;
 mod renderer;
@@ -10,7 +12,6 @@ mod vertex;
 use std::{sync::Arc, time::Instant};
 
 use anyhow::Result;
-use glam::Vec3;
 use renderer::Renderer;
 
 use winit::{
@@ -22,52 +23,31 @@ use winit::{
 };
 
 use asset_manager::AssetManager;
-use assets::Handle;
-use camera::{Camera, CameraController};
-use mesh::Mesh;
+use game::Game;
 
 struct App {
     window: Option<Arc<Window>>,
     renderer: Option<Renderer>,
 
-    camera: Camera,
-    controller: CameraController,
+    assets: AssetManager,
+    game: Game,
+
     captured: bool,
     last_frame: Instant,
-
-    assets: AssetManager,
-    cube: Handle<Mesh>,
 }
 
 impl App {
     fn new() -> Self {
         let mut assets = AssetManager::default();
-        let cube = assets.create_mesh(Mesh::cube(0.5));
+        let game = Game::new(&mut assets);
 
         Self {
             window: None,
             renderer: None,
-            camera: Camera::new(Vec3::new(0.0, 0.0, 2.0), -90.0, 0.0),
-            controller: CameraController::new(2.0, 0.0022),
+            assets,
+            game,
             captured: false,
             last_frame: Instant::now(),
-            assets,
-            cube,
-        }
-    }
-
-    fn recolor_cube(&mut self) {
-        if let Some(mesh) = self.assets.mesh_mut(self.cube) {
-            for vertex in &mut mesh.vertices {
-                let c = vertex.color;
-                vertex.color = Vec3::new(c.z, c.x, c.y);
-            }
-        }
-    }
-
-    fn toggle_cube(&mut self) {
-        if self.assets.remove_mesh(self.cube).is_none() {
-            self.cube = self.assets.create_mesh(Mesh::cube(0.5));
         }
     }
 
@@ -85,7 +65,7 @@ impl App {
         } else {
             let _ = window.set_cursor_grab(CursorGrabMode::None);
             window.set_cursor_visible(true);
-            self.controller.reset();
+            self.game.release_input();
         }
         self.captured = captured;
     }
@@ -154,18 +134,20 @@ impl ApplicationHandler for App {
                 };
                 let pressed = event.state == ElementState::Pressed;
 
-                if self.controller.process_key(code, pressed) {
+                if event.repeat {
                     return;
                 }
-                if pressed && !event.repeat {
-                    match code {
-                        KeyCode::Escape if self.captured => self.set_captured(false),
-                        KeyCode::Escape => event_loop.exit(),
-                        KeyCode::KeyR => self.recolor_cube(),
-                        KeyCode::KeyX => self.toggle_cube(),
-                        _ => {}
+
+                if pressed && code == KeyCode::Escape {
+                    if self.captured {
+                        self.set_captured(false);
+                    } else {
+                        event_loop.exit();
                     }
+                    return;
                 }
+
+                self.game.key(code, pressed, &mut self.assets);
             }
 
             WindowEvent::RedrawRequested => {
@@ -173,10 +155,11 @@ impl ApplicationHandler for App {
                 let dt = (now - self.last_frame).as_secs_f32().min(0.1);
                 self.last_frame = now;
 
-                self.controller.update(&mut self.camera, dt);
+                self.game.update(dt);
+                let frame = self.game.render();
 
                 let renderer = self.renderer.as_mut().unwrap();
-                if let Err(error) = renderer.render(&self.camera, &mut self.assets, self.cube) {
+                if let Err(error) = renderer.render(&frame, &mut self.assets) {
                     eprintln!("Rendering failed: {error:#}");
                     event_loop.exit();
                 }
@@ -195,7 +178,7 @@ impl ApplicationHandler for App {
         if self.captured
             && let DeviceEvent::MouseMotion { delta: (dx, dy) } = event
         {
-            self.controller.process_mouse(dx, dy);
+            self.game.mouse_motion(dx, dy);
         }
     }
 
