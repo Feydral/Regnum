@@ -1,5 +1,3 @@
-mod asset_manager;
-mod assets;
 mod camera;
 mod depth;
 mod frame;
@@ -22,8 +20,8 @@ use winit::{
     window::{CursorGrabMode, Window, WindowId},
 };
 
-use asset_manager::AssetManager;
 use game::Game;
+use regnum_assets::AssetManager;
 
 struct App {
     window: Option<Arc<Window>>,

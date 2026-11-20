@@ -1,9 +1,8 @@
 use glam::Vec3;
+use regnum_assets::{AssetManager, Handle};
 use winit::keyboard::KeyCode;
 
 use crate::{
-    asset_manager::AssetManager,
-    assets::Handle,
     camera::{Camera, CameraController},
     frame::Frame,
     mesh::Mesh,
@@ -20,7 +19,7 @@ impl Game {
         Self {
             camera: Camera::new(Vec3::new(0.0, 0.0, 2.0), -90.0, 0.0),
             controller: CameraController::new(2.0, 0.0022),
-            cube: assets.create_mesh(Mesh::cube(0.5)),
+            cube: assets.add(Mesh::cube(0.5)),
         }
     }
 
@@ -56,7 +55,7 @@ impl Game {
     }
 
     fn recolor_cube(&self, assets: &mut AssetManager) {
-        if let Some(mesh) = assets.mesh_mut(self.cube) {
+        if let Some(mesh) = assets.get_mut(self.cube) {
             for vertex in &mut mesh.vertices {
                 let c = vertex.color;
                 vertex.color = Vec3::new(c.z, c.x, c.y);
@@ -65,8 +64,8 @@ impl Game {
     }
 
     fn toggle_cube(&mut self, assets: &mut AssetManager) {
-        if assets.remove_mesh(self.cube).is_none() {
-            self.cube = assets.create_mesh(Mesh::cube(0.5));
+        if assets.remove(self.cube).is_none() {
+            self.cube = assets.add(Mesh::cube(0.5));
         }
     }
 }

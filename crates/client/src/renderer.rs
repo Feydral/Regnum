@@ -3,8 +3,9 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use winit::{event_loop::ActiveEventLoop, window::Window};
 
+use regnum_assets::AssetManager;
+
 use crate::{
-    asset_manager::AssetManager,
     camera::GpuCamera,
     depth::{DEPTH_FORMAT, DepthTexture},
     frame::Frame,
@@ -197,7 +198,7 @@ impl Renderer {
         };
 
         self.gpu_meshes
-            .sync(&self.device, &self.queue, assets.meshes_mut());
+            .sync(&self.device, &self.queue, assets.storage_mut::<Mesh>());
         self.camera
             .update(&self.queue, &frame.camera, self.aspect());
 

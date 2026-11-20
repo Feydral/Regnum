@@ -1,4 +1,4 @@
-use crate::assets::{AssetEvent, Assets, Handle};
+use regnum_assets::{AssetEvent, Assets, Handle};
 
 pub trait GpuAsset: Sized {
     type Gpu;

@@ -1401,6 +1401,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "regnum-assets"
+version = "0.1.0"
+
+[[package]]
 name = "regnum-client"
 version = "0.1.0"
 dependencies = [
@@ -1408,6 +1412,7 @@ dependencies = [
  "bytemuck",
  "glam",
  "pollster",
+ "regnum-assets",
  "tracing",
  "wgpu",
  "winit",

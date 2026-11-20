@@ -1,4 +1,6 @@
-use crate::{assets::Handle, camera::Camera, mesh::Mesh};
+use regnum_assets::Handle;
+
+use crate::{camera::Camera, mesh::Mesh};
 
 pub struct Frame {
     pub camera: Camera,
