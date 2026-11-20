@@ -1,0 +1,7 @@
+[package]
+name = "regnum-server"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+regnum-game.workspace = true
