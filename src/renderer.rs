@@ -4,9 +4,12 @@ use anyhow::{Context, Result};
 use winit::{event_loop::ActiveEventLoop, window::Window};
 
 use crate::{
+    asset_manager::AssetManager,
+    assets::Handle,
     camera::{Camera, GpuCamera},
     depth::{DEPTH_FORMAT, DepthTexture},
-    mesh::{GpuMesh, Mesh},
+    gpu_assets::GpuAssets,
+    mesh::Mesh,
     vertex::Vertex,
 };
 
@@ -21,7 +24,7 @@ pub struct Renderer {
     depth: DepthTexture,
     pipeline: wgpu::RenderPipeline,
     camera: GpuCamera,
-    mesh: GpuMesh,
+    gpu_meshes: GpuAssets<Mesh>,
 }
 
 impl Renderer {
@@ -53,8 +56,6 @@ impl Renderer {
 
         let depth = DepthTexture::new(&device, config.width, config.height);
         let camera = GpuCamera::new(&device);
-
-        let mesh = GpuMesh::new(&device, &Mesh::cube(0.5));
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Triangle Shader"),
@@ -144,7 +145,7 @@ impl Renderer {
             depth,
             pipeline,
             camera,
-            mesh,
+            gpu_meshes: GpuAssets::default(),
         })
     }
 
@@ -164,7 +165,12 @@ impl Renderer {
         self.config.width as f32 / self.config.height as f32
     }
 
-    pub fn render(&mut self, camera: &Camera) -> Result<()> {
+    pub fn render(
+        &mut self,
+        camera: &Camera,
+        assets: &mut AssetManager,
+        mesh: Handle<Mesh>,
+    ) -> Result<()> {
         let surface_texture = match self.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(texture) => texture,
 
@@ -195,6 +201,8 @@ impl Renderer {
             }
         };
 
+        self.gpu_meshes
+            .sync(&self.device, &self.queue, assets.meshes_mut());
         self.camera.update(&self.queue, camera, self.aspect());
 
         let view = surface_texture
@@ -237,7 +245,9 @@ impl Renderer {
             render_pass.set_pipeline(&self.pipeline);
             render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
 
-            self.mesh.draw(&mut render_pass);
+            if let Some(gpu_mesh) = self.gpu_meshes.get(mesh) {
+                gpu_mesh.draw(&mut render_pass);
+            }
         }
 
         self.queue.submit([encoder.finish()]);

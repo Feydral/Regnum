@@ -1,5 +1,8 @@
+mod asset_manager;
+mod assets;
 mod camera;
 mod depth;
+mod gpu_assets;
 mod mesh;
 mod renderer;
 mod vertex;
@@ -18,7 +21,10 @@ use winit::{
     window::{CursorGrabMode, Window, WindowId},
 };
 
+use asset_manager::AssetManager;
+use assets::Handle;
 use camera::{Camera, CameraController};
+use mesh::Mesh;
 
 struct App {
     window: Option<Arc<Window>>,
@@ -28,10 +34,16 @@ struct App {
     controller: CameraController,
     captured: bool,
     last_frame: Instant,
+
+    assets: AssetManager,
+    cube: Handle<Mesh>,
 }
 
 impl App {
     fn new() -> Self {
+        let mut assets = AssetManager::default();
+        let cube = assets.create_mesh(Mesh::cube(0.5));
+
         Self {
             window: None,
             renderer: None,
@@ -39,6 +51,23 @@ impl App {
             controller: CameraController::new(2.0, 0.0022),
             captured: false,
             last_frame: Instant::now(),
+            assets,
+            cube,
+        }
+    }
+
+    fn recolor_cube(&mut self) {
+        if let Some(mesh) = self.assets.mesh_mut(self.cube) {
+            for vertex in &mut mesh.vertices {
+                let c = vertex.color;
+                vertex.color = Vec3::new(c.z, c.x, c.y);
+            }
+        }
+    }
+
+    fn toggle_cube(&mut self) {
+        if self.assets.remove_mesh(self.cube).is_none() {
+            self.cube = self.assets.create_mesh(Mesh::cube(0.5));
         }
     }
 
@@ -128,11 +157,13 @@ impl ApplicationHandler for App {
                 if self.controller.process_key(code, pressed) {
                     return;
                 }
-                if pressed && !event.repeat && code == KeyCode::Escape {
-                    if self.captured {
-                        self.set_captured(false);
-                    } else {
-                        event_loop.exit();
+                if pressed && !event.repeat {
+                    match code {
+                        KeyCode::Escape if self.captured => self.set_captured(false),
+                        KeyCode::Escape => event_loop.exit(),
+                        KeyCode::KeyR => self.recolor_cube(),
+                        KeyCode::KeyX => self.toggle_cube(),
+                        _ => {}
                     }
                 }
             }
@@ -145,7 +176,7 @@ impl ApplicationHandler for App {
                 self.controller.update(&mut self.camera, dt);
 
                 let renderer = self.renderer.as_mut().unwrap();
-                if let Err(error) = renderer.render(&self.camera) {
+                if let Err(error) = renderer.render(&self.camera, &mut self.assets, self.cube) {
                     eprintln!("Rendering failed: {error:#}");
                     event_loop.exit();
                 }
