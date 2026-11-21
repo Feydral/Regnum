@@ -2,3 +2,6 @@
 name = "regnum-game"
 version.workspace = true
 edition.workspace = true
+
+[dependencies]
+glam.workspace = true

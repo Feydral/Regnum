@@ -1,3 +1,5 @@
+pub mod world;
+
 pub const TICK_RATE: u32 = 20;
 
 #[derive(Default)]

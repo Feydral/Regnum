@@ -1430,6 +1430,9 @@ dependencies = [
 [[package]]
 name = "regnum-game"
 version = "0.1.0"
+dependencies = [
+ "glam",
+]
 
 [[package]]
 name = "regnum-renderer"
