@@ -4,5 +4,5 @@ mod game;
 use game::Game;
 
 fn main() -> anyhow::Result<()> {
-    regnum_app::run(Game::new)
+    regnum_app::run(Game::new())
 }

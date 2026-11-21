@@ -11,7 +11,7 @@ use winit::{
     window::{CursorGrabMode, Window, WindowId},
 };
 
-use crate::{Application, Input, Key};
+use crate::{Application, Input, Key, timestep::FixedTimestep};
 
 struct App<G: Application> {
     window: Option<Arc<Window>>,
@@ -23,12 +23,13 @@ struct App<G: Application> {
 
     captured: bool,
     last_frame: Instant,
+    timestep: FixedTimestep,
 }
 
 impl<G: Application> App<G> {
-    fn new(create: impl FnOnce(&mut AssetManager) -> G) -> Self {
+    fn new(mut game: G) -> Self {
         let mut assets = AssetManager::default();
-        let game = create(&mut assets);
+        game.load(&mut assets);
 
         Self {
             window: None,
@@ -38,6 +39,7 @@ impl<G: Application> App<G> {
             game,
             captured: false,
             last_frame: Instant::now(),
+            timestep: FixedTimestep::default(),
         }
     }
 
@@ -82,9 +84,12 @@ impl<G: Application> ApplicationHandler for App<G> {
             }
         };
 
+        let size = window.inner_size();
+
         self.window = Some(window);
         self.renderer = Some(renderer);
         self.last_frame = Instant::now();
+        self.game.resize(size.width.max(1), size.height.max(1));
         self.set_captured(true);
 
         self.renderer.as_ref().unwrap().request_redraw();
@@ -103,11 +108,12 @@ impl<G: Application> ApplicationHandler for App<G> {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
 
-            WindowEvent::Resized(size) => {
+            WindowEvent::Resized(size) if size.width > 0 && size.height > 0 => {
                 self.renderer
                     .as_mut()
                     .unwrap()
                     .resize(size.width, size.height);
+                self.game.resize(size.width, size.height);
             }
 
             WindowEvent::Focused(false) => self.set_captured(false),
@@ -147,7 +153,14 @@ impl<G: Application> ApplicationHandler for App<G> {
                 let dt = (now - self.last_frame).as_secs_f32().min(0.1);
                 self.last_frame = now;
 
+                let step = self.game.fixed_timestep();
+                for _ in 0..self.timestep.advance(dt, step) {
+                    self.game.fixed_update(step, &mut self.assets);
+                }
+
+                self.game.pre_update(dt, &self.input, &mut self.assets);
                 self.game.update(dt, &self.input, &mut self.assets);
+                self.game.post_update(dt, &self.input, &mut self.assets);
                 self.input.end_frame();
 
                 let frame = self.game.render();
@@ -181,13 +194,17 @@ impl<G: Application> ApplicationHandler for App<G> {
             renderer.request_redraw();
         }
     }
+
+    fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
+        self.game.unload(&mut self.assets);
+    }
 }
 
-pub fn run<G: Application>(create: impl FnOnce(&mut AssetManager) -> G) -> Result<()> {
+pub fn run<G: Application>(game: G) -> Result<()> {
     let event_loop = EventLoop::new()?;
     event_loop.set_control_flow(ControlFlow::Poll);
 
-    let mut app = App::new(create);
+    let mut app = App::new(game);
     event_loop.run_app(&mut app)?;
 
     Ok(())

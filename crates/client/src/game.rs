@@ -8,20 +8,22 @@ use crate::camera_controller::CameraController;
 pub struct Game {
     camera: Camera,
     controller: CameraController,
-    cube: Handle<Mesh>,
+    cube: Option<Handle<Mesh>>,
 }
 
 impl Game {
-    pub fn new(assets: &mut AssetManager) -> Self {
+    pub fn new() -> Self {
         Self {
             camera: Camera::new(Vec3::new(0.0, 0.0, 2.0), -90.0, 0.0),
             controller: CameraController::new(2.0, 0.0022),
-            cube: assets.add(Mesh::cube(0.5)),
+            cube: None,
         }
     }
 
     fn recolor_cube(&self, assets: &mut AssetManager) {
-        if let Some(mesh) = assets.get_mut(self.cube) {
+        let Some(cube) = self.cube else { return };
+
+        if let Some(mesh) = assets.get_mut(cube) {
             for vertex in &mut mesh.vertices {
                 let c = vertex.color;
                 vertex.color = Vec3::new(c.z, c.x, c.y);
@@ -30,13 +32,26 @@ impl Game {
     }
 
     fn toggle_cube(&mut self, assets: &mut AssetManager) {
-        if assets.remove(self.cube).is_none() {
-            self.cube = assets.add(Mesh::cube(0.5));
+        match self.cube.take() {
+            Some(cube) => {
+                assets.remove(cube);
+            }
+            None => self.cube = Some(assets.add(Mesh::cube(0.5))),
         }
     }
 }
 
 impl Application for Game {
+    fn load(&mut self, assets: &mut AssetManager) {
+        self.cube = Some(assets.add(Mesh::cube(0.5)));
+    }
+
+    fn unload(&mut self, assets: &mut AssetManager) {
+        if let Some(cube) = self.cube.take() {
+            assets.remove(cube);
+        }
+    }
+    
     fn update(&mut self, dt: f32, input: &Input, assets: &mut AssetManager) {
         self.controller.update(&mut self.camera, input, dt);
 
@@ -51,7 +66,7 @@ impl Application for Game {
     fn render(&self) -> Frame {
         Frame {
             camera: self.camera.clone(),
-            meshes: vec![self.cube],
+            meshes: self.cube.into_iter().collect(),
         }
     }
 }
