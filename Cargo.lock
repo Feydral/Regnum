@@ -1432,6 +1432,7 @@ name = "regnum-game"
 version = "0.1.0"
 dependencies = [
  "glam",
+ "serde",
 ]
 
 [[package]]
@@ -1449,9 +1450,6 @@ dependencies = [
 [[package]]
 name = "regnum-server"
 version = "0.1.0"
-dependencies = [
- "regnum-game",
-]
 
 [[package]]
 name = "renderdoc-sys"

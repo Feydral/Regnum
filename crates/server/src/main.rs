@@ -3,19 +3,18 @@ use std::{
     time::{Duration, Instant},
 };
 
-use regnum_game::{Game, TICK_RATE};
+const TICK_RATE: u32 = 20;
 
 fn main() {
-    let mut game = Game::new();
-
     let step = Duration::from_secs_f64(1.0 / TICK_RATE as f64);
     let mut next_tick = Instant::now();
+    let mut tick: u64 = 0;
 
     loop {
-        game.fixed_update(step.as_secs_f32());
+        tick += 1;
 
-        if game.tick() % TICK_RATE as u64 == 0 {
-            println!("tick {}", game.tick());
+        if tick % TICK_RATE as u64 == 0 {
+            println!("tick {tick}");
         }
 
         next_tick += step;
