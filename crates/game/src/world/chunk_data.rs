@@ -30,15 +30,49 @@ impl ChunkData {
 
     const BITS_PER_WORD: u32 = 32;
 
-    pub fn new() -> Self {
+    pub fn new(block: Block) -> Self {
         let mut palette_index = HashMap::new();
-        palette_index.insert(Block::default(), 0);
+        palette_index.insert(block, 0);
         Self {
-            palette: vec![Block::default()],
+            palette: vec![block],
             palette_index,
             bits_per_index: 0,
             data: Vec::new(),
         }
+    }
+
+    pub fn from_blocks(blocks: &[Block]) -> Option<Self> {
+        if blocks.len() != Self::VOLUME as usize {
+            return None;
+        }
+
+        let mut palette = Vec::new();
+        let mut palette_index = HashMap::new();
+        let mut indices = Vec::with_capacity(blocks.len());
+
+        for &block in blocks {
+            let idx = *palette_index.entry(block).or_insert_with(|| {
+                palette.push(block);
+                palette.len() as u32 - 1
+            });
+            indices.push(idx);
+        }
+
+        let bits_per_index = Self::bits_for_palette_len(palette.len());
+        let mut data = vec![0u32; Self::word_count(bits_per_index)];
+
+        if bits_per_index != 0 {
+            for (flat_idx, &idx) in indices.iter().enumerate() {
+                Self::write_index_into(&mut data, bits_per_index, flat_idx as u32, idx);
+            }
+        }
+
+        Some(Self {
+            palette,
+            palette_index,
+            bits_per_index,
+            data,
+        })
     }
 
     pub fn get_block(&self, position: UVec3) -> Option<&Block> {

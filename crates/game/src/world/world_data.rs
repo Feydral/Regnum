@@ -28,15 +28,15 @@ impl WorldData {
         self.chunks.get_mut(&position).map(Arc::make_mut)
     }
 
-    pub fn get_or_create_chunk(&mut self, position: IVec3) -> &ChunkData {
-        &*self.get_or_create_chunk_mut(position)
+    pub fn get_or_create_chunk(&mut self, position: IVec3, fill: Block) -> &ChunkData {
+        &*self.get_or_create_chunk_mut(position, fill)
     }
 
-    pub fn get_or_create_chunk_mut(&mut self, position: IVec3) -> &mut ChunkData {
+    pub fn get_or_create_chunk_mut(&mut self, position: IVec3, fill: Block) -> &mut ChunkData {
         Arc::make_mut(
             self.chunks
                 .entry(position)
-                .or_insert_with(|| Arc::new(ChunkData::new())),
+                .or_insert_with(|| Arc::new(ChunkData::new(fill))),
         )
     }
 
@@ -67,10 +67,10 @@ impl WorldData {
         chunk.set_block(local_pos, block)
     }
 
-    pub fn set_block_or_create(&mut self, world_position: IVec3, block: Block) {
+    pub fn set_block_or_create(&mut self, world_position: IVec3, block: Block, fill: Block) {
         let chunk_pos = Self::world_to_chunk(world_position);
         let local_pos = Self::world_to_local(world_position);
-        self.get_or_create_chunk_mut(chunk_pos)
+        self.get_or_create_chunk_mut(chunk_pos, fill)
             .set_block(local_pos, block);
     }
 
