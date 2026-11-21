@@ -289,4 +289,3 @@ impl ChunkData {
         self.bits_per_index = new_bits;
     }
 }
- 

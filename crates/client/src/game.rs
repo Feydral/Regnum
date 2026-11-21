@@ -51,7 +51,7 @@ impl Application for Game {
             assets.remove(cube);
         }
     }
-    
+
     fn update(&mut self, dt: f32, input: &Input, assets: &mut AssetManager) {
         self.controller.update(&mut self.camera, input, dt);
 
