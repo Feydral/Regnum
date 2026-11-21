@@ -6,13 +6,34 @@ pub mod shape;
 
 use std::collections::HashMap;
 
+use serde::Deserialize;
+
 use crate::world::block::Block;
 use crate::world::registry::{
     block_state_data::BlockStateData,
     definition::BlockDefinition,
-    model::{BlockModel, MeshType, texture_rectangle::TextureRectangle},
-    shape::BlockShape,
+    model::{BlockModel, BlockModelJson, MeshType, texture_rectangle::TextureRectangle},
+    property::Property,
+    shape::{BlockShape, BlockShapeJson},
 };
+
+#[derive(Debug, Deserialize)]
+struct StateJson {
+    #[serde(default)]
+    when: HashMap<String, u32>,
+    collision_shape: BlockShapeJson,
+    model: BlockModelJson,
+    mesh_type: MeshType,
+}
+
+#[derive(Debug, Deserialize)]
+struct BlockJson {
+    name: String,
+    #[serde(default)]
+    properties: Vec<Property>,
+    #[serde(default)]
+    states: Vec<StateJson>,
+}
 
 pub struct BlockRegistry {
     name_to_id: HashMap<String, u16>,
@@ -26,6 +47,61 @@ impl BlockRegistry {
         Self::default_blocks(&mut name_to_id, &mut defs);
 
         Self { name_to_id, defs }
+    }
+
+    pub fn load_from_directory(directory: &str) -> Self {
+        let mut registry = Self::new();
+
+        let mut paths: Vec<_> = match std::fs::read_dir(directory) {
+            Ok(entries) => entries
+                .filter_map(|entry| entry.ok())
+                .map(|entry| entry.path())
+                .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("json"))
+                .collect(),
+            Err(err) => {
+                tracing::error!("could not read block directory '{directory}': {err}");
+                Vec::new()
+            }
+        };
+        paths.sort();
+
+        for path in paths {
+            let json = match std::fs::read_to_string(&path) {
+                Ok(json) => json,
+                Err(err) => {
+                    tracing::error!("could not read block file '{}': {err}", path.display());
+                    continue;
+                }
+            };
+
+            let block: BlockJson = match serde_json::from_str(&json) {
+                Ok(block) => block,
+                Err(err) => {
+                    tracing::error!("invalid block json '{}': {err}", path.display());
+                    continue;
+                }
+            };
+
+            if let Some(&existing_id) = registry.name_to_id.get(&block.name) {
+                tracing::error!(
+                    "duplicate block name '{}' in '{}' (already registered with id {existing_id}); overwriting",
+                    block.name,
+                    path.display()
+                );
+            }
+
+            let id = registry.defs.len() as u16;
+            let states = Self::build_states(&block);
+
+            registry.name_to_id.insert(block.name.clone(), id);
+            registry.defs.push(BlockDefinition {
+                name: block.name,
+                properties: block.properties,
+                states,
+            });
+        }
+
+        registry
     }
 
     fn default_blocks(name_to_id: &mut HashMap<String, u16>, defs: &mut Vec<BlockDefinition>) {
@@ -68,6 +144,35 @@ impl BlockRegistry {
                 states: vec![state],
             });
         }
+    }
+
+    fn build_states(block: &BlockJson) -> Vec<BlockStateData> {
+        let count = property::state_count(&block.properties).max(1);
+        let mut states = Vec::with_capacity(count as usize);
+
+        for data in 0..count {
+            let values = property::decode(&block.properties, data);
+
+            let matched = block
+                .states
+                .iter()
+                .find(|state| property::matches_when(&state.when, &block.properties, &values));
+
+            let state_data = match matched {
+                Some(state) => {
+                    let shape = state.collision_shape.resolve(&block.properties, &values);
+                    let model = state
+                        .model
+                        .resolve(state.mesh_type, &block.properties, &values);
+                    BlockStateData::new(model, shape)
+                }
+                None => BlockStateData::empty(),
+            };
+
+            states.push(state_data);
+        }
+
+        states
     }
 }
 
