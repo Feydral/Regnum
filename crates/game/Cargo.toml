@@ -4,5 +4,5 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-glam.workspace = true
+glam = { workspace = true, features = ["serde"] }
 serde.workspace = true
