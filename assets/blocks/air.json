@@ -1,0 +1,12 @@
+{
+  "name": "air",
+  "properties": [],
+  "states": [
+    {
+      "when": {},
+      "collision_shape": "empty",
+      "model": "empty",
+      "mesh_type": "none"
+    }
+  ]
+}

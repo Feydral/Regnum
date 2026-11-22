@@ -1,0 +1,25 @@
+{
+  "name": "stone_block",
+  "properties": [],
+  "states": [
+    {
+      "when": {},
+      "collision_shape": "full",
+      "model": {
+        "cube_uniform": {
+          "uv": {
+            "min": [
+              64,
+              0
+            ],
+            "max": [
+              80,
+              16
+            ]
+          }
+        }
+      },
+      "mesh_type": "opaque"
+    }
+  ]
+}
