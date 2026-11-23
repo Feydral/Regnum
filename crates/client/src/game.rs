@@ -1,6 +1,6 @@
 use glam::Vec3;
 use regnum_app::{Application, Input, Key};
-use regnum_assets::{AssetManager, Handle, Mesh};
+use regnum_assets::{AssetManager, Handle, Mesh, Model, Texture};
 use regnum_renderer::{Camera, Frame};
 
 use crate::camera_controller::CameraController;
@@ -9,6 +9,7 @@ pub struct Game {
     camera: Camera,
     controller: CameraController,
     cube: Option<Handle<Mesh>>,
+    atlas: Option<Handle<Texture>>,
 }
 
 impl Game {
@@ -17,6 +18,7 @@ impl Game {
             camera: Camera::new(Vec3::new(0.0, 0.0, 2.0), -90.0, 0.0),
             controller: CameraController::new(2.0, 0.0022),
             cube: None,
+            atlas: None,
         }
     }
 
@@ -44,11 +46,15 @@ impl Game {
 impl Application for Game {
     fn load(&mut self, assets: &mut AssetManager) {
         self.cube = Some(assets.add(Mesh::cube(0.5)));
+        self.atlas = Some(assets.add(Texture::new(1, 1, vec![255, 0, 255, 255])));
     }
 
     fn unload(&mut self, assets: &mut AssetManager) {
         if let Some(cube) = self.cube.take() {
             assets.remove(cube);
+        }
+        if let Some(atlas) = self.atlas.take() {
+            assets.remove(atlas);
         }
     }
 
@@ -66,7 +72,12 @@ impl Application for Game {
     fn render(&self) -> Frame {
         Frame {
             camera: self.camera.clone(),
-            meshes: self.cube.into_iter().collect(),
+            models: self
+                .cube
+                .zip(self.atlas)
+                .map(|(mesh, texture)| Model { mesh, texture })
+                .into_iter()
+                .collect(),
         }
     }
 }

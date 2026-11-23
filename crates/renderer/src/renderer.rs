@@ -3,13 +3,14 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use winit::{event_loop::ActiveEventLoop, window::Window};
 
-use regnum_assets::{AssetManager, Mesh};
+use regnum_assets::{AssetManager, Mesh, Texture};
 
 use crate::{
     camera::GpuCamera,
     depth::{DEPTH_FORMAT, DepthTexture},
     frame::Frame,
     gpu_assets::GpuAssets,
+    texture::GpuTexture,
     vertex::vertex_layout,
 };
 
@@ -25,6 +26,7 @@ pub struct Renderer {
     pipeline: wgpu::RenderPipeline,
     camera: GpuCamera,
     gpu_meshes: GpuAssets<Mesh>,
+    gpu_textures: GpuAssets<Texture>,
 }
 
 impl Renderer {
@@ -58,12 +60,13 @@ impl Renderer {
         let camera = GpuCamera::new(&device);
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Triangle Shader"),
+            label: Some("Model Shader"),
             source: wgpu::ShaderSource::Wgsl(
                 r#"
                     struct VertexOutput {
                         @builtin(position) position: vec4<f32>,
-                        @location(0) color: vec3<f32>,
+                        @location(0) normal: vec3<f32>,
+                        @location(1) uv: vec2<f32>,
                     };
 
                     struct Camera {
@@ -71,6 +74,11 @@ impl Renderer {
                     };
 
                     @group(0) @binding(0) var<uniform> camera: Camera;
+                    @group(1) @binding(0) var atlas: texture_2d<f32>;
+                    @group(1) @binding(1) var atlas_sampler: sampler;
+
+                    const LIGHT_DIRECTION: vec3<f32> = vec3<f32>(0.4, 0.8, 0.3);
+                    const AMBIENT: f32 = 0.45;
 
                     @vertex
                     fn vs_main(
@@ -80,7 +88,8 @@ impl Renderer {
                     ) -> VertexOutput {
                         var output: VertexOutput;
                         output.position = camera.view_proj * vec4<f32>(position, 1.0);
-                        output.color = normal * 0.5 + vec3<f32>(0.5);
+                        output.normal = normal;
+                        output.uv = uv;
                         return output;
                     }
 
@@ -88,21 +97,26 @@ impl Renderer {
                     fn fs_main(
                         input: VertexOutput
                     ) -> @location(0) vec4<f32> {
-                        return vec4<f32>(input.color, 1.0);
+                        let diffuse = max(dot(normalize(input.normal), normalize(LIGHT_DIRECTION)), 0.0);
+                        let light = AMBIENT + (1.0 - AMBIENT) * diffuse;
+                        let texel = textureSample(atlas, atlas_sampler, input.uv);
+                        return vec4<f32>(texel.rgb * light, 1.0);
                     }
                     "#
                 .into(),
             ),
         });
 
+        let texture_layout = GpuTexture::bind_group_layout(&device);
+
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Pipeline Layout"),
-            bind_group_layouts: &[Some(&camera.layout)],
+            bind_group_layouts: &[Some(&camera.layout), Some(&texture_layout)],
             immediate_size: 0,
         });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Triangle Pipeline"),
+            label: Some("Model Pipeline"),
             layout: Some(&pipeline_layout),
 
             vertex: wgpu::VertexState {
@@ -124,6 +138,7 @@ impl Renderer {
             }),
 
             primitive: wgpu::PrimitiveState {
+                front_face: wgpu::FrontFace::Ccw,
                 cull_mode: Some(wgpu::Face::Back),
                 ..Default::default()
             },
@@ -150,6 +165,7 @@ impl Renderer {
             pipeline,
             camera,
             gpu_meshes: GpuAssets::default(),
+            gpu_textures: GpuAssets::default(),
         })
     }
 
@@ -202,6 +218,8 @@ impl Renderer {
 
         self.gpu_meshes
             .sync(&self.device, &self.queue, assets.storage_mut::<Mesh>());
+        self.gpu_textures
+            .sync(&self.device, &self.queue, assets.storage_mut::<Texture>());
         self.camera
             .update(&self.queue, &frame.camera, self.aspect());
 
@@ -245,8 +263,12 @@ impl Renderer {
             render_pass.set_pipeline(&self.pipeline);
             render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
 
-            for handle in &frame.meshes {
-                if let Some(gpu_mesh) = self.gpu_meshes.get(*handle) {
+            for model in &frame.models {
+                if let (Some(gpu_mesh), Some(gpu_texture)) = (
+                    self.gpu_meshes.get(model.mesh),
+                    self.gpu_textures.get(model.texture),
+                ) {
+                    render_pass.set_bind_group(1, &gpu_texture.bind_group, &[]);
                     gpu_mesh.draw(&mut render_pass);
                 }
             }

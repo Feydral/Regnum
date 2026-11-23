@@ -1,8 +1,8 @@
-use regnum_assets::{Handle, Mesh};
+use regnum_assets::Model;
 
 use crate::camera::Camera;
 
 pub struct Frame {
     pub camera: Camera,
-    pub meshes: Vec<Handle<Mesh>>,
+    pub models: Vec<Model>,
 }
