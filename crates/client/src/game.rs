@@ -5,6 +5,8 @@ use regnum_renderer::{Camera, Frame};
 
 use crate::camera_controller::CameraController;
 
+const ATLAS_PATH: &str = "assets/textures/TextureAtlas.png";
+
 pub struct Game {
     camera: Camera,
     controller: CameraController,
@@ -46,7 +48,9 @@ impl Game {
 impl Application for Game {
     fn load(&mut self, assets: &mut AssetManager) {
         self.cube = Some(assets.add(Mesh::cube(0.5)));
-        self.atlas = Some(assets.add(Texture::new(1, 1, vec![255, 0, 255, 255])));
+        let atlas = Texture::load_png(ATLAS_PATH)
+            .unwrap_or_else(|_| Texture::new(1, 1, vec![255, 0, 255, 255]));
+        self.atlas = Some(assets.add(atlas));
     }
 
     fn unload(&mut self, assets: &mut AssetManager) {
