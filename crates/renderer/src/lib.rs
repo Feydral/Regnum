@@ -8,6 +8,4 @@ mod vertex;
 
 pub use camera::Camera;
 pub use frame::Frame;
-pub use mesh::Mesh;
 pub use renderer::Renderer;
-pub use vertex::Vertex;

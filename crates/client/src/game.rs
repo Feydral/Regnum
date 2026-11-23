@@ -1,7 +1,7 @@
 use glam::Vec3;
 use regnum_app::{Application, Input, Key};
-use regnum_assets::{AssetManager, Handle};
-use regnum_renderer::{Camera, Frame, Mesh};
+use regnum_assets::{AssetManager, Handle, Mesh};
+use regnum_renderer::{Camera, Frame};
 
 use crate::camera_controller::CameraController;
 
@@ -25,8 +25,8 @@ impl Game {
 
         if let Some(mesh) = assets.get_mut(cube) {
             for vertex in &mut mesh.vertices {
-                let c = vertex.color;
-                vertex.color = Vec3::new(c.z, c.x, c.y);
+                let n = vertex.normal;
+                vertex.normal = Vec3::new(n.z, n.x, n.y);
             }
         }
     }

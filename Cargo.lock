@@ -1422,6 +1422,10 @@ dependencies = [
 [[package]]
 name = "regnum-assets"
 version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "glam",
+]
 
 [[package]]
 name = "regnum-client"
@@ -1439,6 +1443,7 @@ name = "regnum-game"
 version = "0.1.0"
 dependencies = [
  "glam",
+ "regnum-assets",
  "serde",
  "serde_json",
  "tracing",

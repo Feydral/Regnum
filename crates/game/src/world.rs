@@ -1,5 +1,6 @@
 pub mod block;
 pub mod chunk_data;
+pub mod mesher;
 pub mod registry;
 pub mod world_data;
 

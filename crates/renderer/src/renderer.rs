@@ -3,15 +3,14 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use winit::{event_loop::ActiveEventLoop, window::Window};
 
-use regnum_assets::AssetManager;
+use regnum_assets::{AssetManager, Mesh};
 
 use crate::{
     camera::GpuCamera,
     depth::{DEPTH_FORMAT, DepthTexture},
     frame::Frame,
     gpu_assets::GpuAssets,
-    mesh::Mesh,
-    vertex::Vertex,
+    vertex::vertex_layout,
 };
 
 pub struct Renderer {
@@ -76,11 +75,12 @@ impl Renderer {
                     @vertex
                     fn vs_main(
                         @location(0) position: vec3<f32>,
-                        @location(1) color: vec3<f32>
+                        @location(1) normal: vec3<f32>,
+                        @location(2) uv: vec2<f32>
                     ) -> VertexOutput {
                         var output: VertexOutput;
                         output.position = camera.view_proj * vec4<f32>(position, 1.0);
-                        output.color = color;
+                        output.color = normal * 0.5 + vec3<f32>(0.5);
                         return output;
                     }
 
@@ -108,7 +108,7 @@ impl Renderer {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[Some(Vertex::layout())],
+                buffers: &[Some(vertex_layout())],
                 compilation_options: Default::default(),
             },
 

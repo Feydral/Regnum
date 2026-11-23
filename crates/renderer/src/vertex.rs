@@ -1,23 +1,15 @@
-use glam::Vec3;
+use regnum_assets::Vertex;
 
-#[repr(C)]
-#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Vertex {
-    pub position: Vec3,
-    pub color: Vec3,
-}
+const ATTRIBUTES: [wgpu::VertexAttribute; 3] = wgpu::vertex_attr_array![
+    0 => Float32x3,
+    1 => Float32x3,
+    2 => Float32x2
+];
 
-impl Vertex {
-    pub const ATTRIBUTES: [wgpu::VertexAttribute; 2] = wgpu::vertex_attr_array![
-        0 => Float32x3,
-        1 => Float32x3
-    ];
-
-    pub fn layout() -> wgpu::VertexBufferLayout<'static> {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &Self::ATTRIBUTES,
-        }
+pub fn vertex_layout() -> wgpu::VertexBufferLayout<'static> {
+    wgpu::VertexBufferLayout {
+        array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+        step_mode: wgpu::VertexStepMode::Vertex,
+        attributes: &ATTRIBUTES,
     }
 }

@@ -2,3 +2,7 @@
 name = "regnum-assets"
 version.workspace = true
 edition.workspace = true
+
+[dependencies]
+bytemuck.workspace = true
+glam.workspace = true
