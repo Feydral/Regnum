@@ -1,6 +1,6 @@
 use glam::Vec3;
 use regnum_app::{Application, Input, Key};
-use regnum_assets::{AssetManager, Handle, Mesh, Model, Texture};
+use regnum_assets::{AssetManager, Handle, Mesh, Model, Texture, Transform};
 use regnum_renderer::{Camera, Frame};
 
 use crate::camera_controller::CameraController;
@@ -79,7 +79,11 @@ impl Application for Game {
             models: self
                 .cube
                 .zip(self.atlas)
-                .map(|(mesh, texture)| Model { mesh, texture })
+                .map(|(mesh, texture)| Model {
+                    mesh,
+                    texture,
+                    transform: Transform::IDENTITY,
+                })
                 .into_iter()
                 .collect(),
         }
