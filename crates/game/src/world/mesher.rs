@@ -16,7 +16,7 @@ pub type Neighbors = [Arc<ChunkData>; 6];
 const PADDED: usize = ChunkData::SIZE as usize + 2;
 
 const ATLAS_SIZE: u32 = 256;
-const UV_INSET: f32 = 0.5 / ATLAS_SIZE as f32;
+const UV_INSET: f32 = (1.0 / 64.0) / ATLAS_SIZE as f32;
 const UV_INSET_DIRECTIONS: [Vec2; 4] = [
     Vec2::new(1.0, -1.0),
     Vec2::new(-1.0, -1.0),
