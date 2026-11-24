@@ -28,14 +28,14 @@ impl GpuMesh {
         }
     }
 
-    pub fn draw(&self, render_pass: &mut wgpu::RenderPass<'_>) {
+    pub fn draw(&self, render_pass: &mut wgpu::RenderPass<'_>, instance: u32) {
         if self.index_count == 0 {
             return;
         }
 
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        render_pass.draw_indexed(0..self.index_count, 0, 0..1);
+        render_pass.draw_indexed(0..self.index_count, 0, instance..instance + 1);
     }
 }
 

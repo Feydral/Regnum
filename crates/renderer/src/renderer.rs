@@ -10,6 +10,7 @@ use crate::{
     depth::{DEPTH_FORMAT, DepthTexture},
     frame::Frame,
     gpu_assets::GpuAssets,
+    instance::{InstanceBuffer, InstanceRaw, instance_layout},
     texture::GpuTexture,
     vertex::vertex_layout,
 };
@@ -25,6 +26,7 @@ pub struct Renderer {
     depth: DepthTexture,
     pipeline: wgpu::RenderPipeline,
     camera: GpuCamera,
+    instances: InstanceBuffer,
     gpu_meshes: GpuAssets<Mesh>,
     gpu_textures: GpuAssets<Texture>,
 }
@@ -58,6 +60,7 @@ impl Renderer {
 
         let depth = DepthTexture::new(&device, config.width, config.height);
         let camera = GpuCamera::new(&device);
+        let instances = InstanceBuffer::new(&device);
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Model Shader"),
@@ -84,11 +87,20 @@ impl Renderer {
                     fn vs_main(
                         @location(0) position: vec3<f32>,
                         @location(1) normal: vec3<f32>,
-                        @location(2) uv: vec2<f32>
+                        @location(2) uv: vec2<f32>,
+                        @location(3) model_0: vec4<f32>,
+                        @location(4) model_1: vec4<f32>,
+                        @location(5) model_2: vec4<f32>,
+                        @location(6) model_3: vec4<f32>,
+                        @location(7) normal_0: vec3<f32>,
+                        @location(8) normal_1: vec3<f32>,
+                        @location(9) normal_2: vec3<f32>
                     ) -> VertexOutput {
+                        let model = mat4x4<f32>(model_0, model_1, model_2, model_3);
+                        let normal_matrix = mat3x3<f32>(normal_0, normal_1, normal_2);
                         var output: VertexOutput;
-                        output.position = camera.view_proj * vec4<f32>(position, 1.0);
-                        output.normal = normal;
+                        output.position = camera.view_proj * model * vec4<f32>(position, 1.0);
+                        output.normal = normal_matrix * normal;
                         output.uv = uv;
                         return output;
                     }
@@ -122,7 +134,7 @@ impl Renderer {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[Some(vertex_layout())],
+                buffers: &[Some(vertex_layout()), Some(instance_layout())],
                 compilation_options: Default::default(),
             },
 
@@ -164,6 +176,7 @@ impl Renderer {
             depth,
             pipeline,
             camera,
+            instances,
             gpu_meshes: GpuAssets::default(),
             gpu_textures: GpuAssets::default(),
         })
@@ -223,6 +236,20 @@ impl Renderer {
         self.camera
             .update(&self.queue, &frame.camera, self.aspect());
 
+        let draws: Vec<_> = frame
+            .models
+            .iter()
+            .filter_map(|model| {
+                Some((
+                    self.gpu_meshes.get(model.mesh)?,
+                    self.gpu_textures.get(model.texture)?,
+                    InstanceRaw::from(&model.transform),
+                ))
+            })
+            .collect();
+        let instances: Vec<InstanceRaw> = draws.iter().map(|draw| draw.2).collect();
+        self.instances.update(&self.device, &self.queue, &instances);
+
         let view = surface_texture
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -263,14 +290,11 @@ impl Renderer {
             render_pass.set_pipeline(&self.pipeline);
             render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
 
-            for model in &frame.models {
-                if let (Some(gpu_mesh), Some(gpu_texture)) = (
-                    self.gpu_meshes.get(model.mesh),
-                    self.gpu_textures.get(model.texture),
-                ) {
-                    render_pass.set_bind_group(1, &gpu_texture.bind_group, &[]);
-                    gpu_mesh.draw(&mut render_pass);
-                }
+            render_pass.set_vertex_buffer(1, self.instances.buffer().slice(..));
+
+            for (index, (gpu_mesh, gpu_texture, _)) in draws.iter().enumerate() {
+                render_pass.set_bind_group(1, &gpu_texture.bind_group, &[]);
+                gpu_mesh.draw(&mut render_pass, index as u32);
             }
         }
 
