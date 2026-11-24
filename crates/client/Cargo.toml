@@ -8,4 +8,5 @@ anyhow.workspace = true
 glam.workspace = true
 regnum-app.workspace = true
 regnum-assets.workspace = true
+regnum-game.workspace = true
 regnum-renderer.workspace = true

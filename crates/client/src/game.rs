@@ -1,17 +1,22 @@
-use glam::Vec3;
+use glam::{IVec3, Vec3};
 use regnum_app::{Application, Input, Key};
 use regnum_assets::{AssetManager, Handle, Mesh, Model, Texture, Transform};
+use regnum_game::world::{WorldData, registry::BlockRegistry};
 use regnum_renderer::{Camera, Frame};
 
-use crate::camera_controller::CameraController;
+use crate::{camera_controller::CameraController, terrain};
 
 const ATLAS_PATH: &str = "assets/textures/TextureAtlas.png";
+const BLOCKS_PATH: &str = "assets/blocks";
+const WORLD_RADIUS: i32 = 2;
 
 pub struct Game {
     camera: Camera,
     controller: CameraController,
     cube: Option<Handle<Mesh>>,
     atlas: Option<Handle<Texture>>,
+    registry: BlockRegistry,
+    world: WorldData,
 }
 
 impl Game {
@@ -21,6 +26,8 @@ impl Game {
             controller: CameraController::new(2.0, 0.0022),
             cube: None,
             atlas: None,
+            registry: BlockRegistry::load_from_directory(BLOCKS_PATH),
+            world: WorldData::new(),
         }
     }
 
@@ -51,6 +58,14 @@ impl Application for Game {
         let atlas = Texture::load_png(ATLAS_PATH)
             .unwrap_or_else(|_| Texture::new(1, 1, vec![255, 0, 255, 255]));
         self.atlas = Some(assets.add(atlas));
+
+        for z in -WORLD_RADIUS..=WORLD_RADIUS {
+            for x in -WORLD_RADIUS..=WORLD_RADIUS {
+                let position = IVec3::new(x, 0, z);
+                self.world
+                    .set_chunk(position, terrain::generate_chunk(&self.registry, position));
+            }
+        }
     }
 
     fn unload(&mut self, assets: &mut AssetManager) {
@@ -59,6 +74,11 @@ impl Application for Game {
         }
         if let Some(atlas) = self.atlas.take() {
             assets.remove(atlas);
+        }
+
+        let positions: Vec<IVec3> = self.world.iter_loaded_positions().collect();
+        for position in positions {
+            self.world.remove_chunk(position);
         }
     }
 

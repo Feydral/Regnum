@@ -1504,6 +1504,7 @@ dependencies = [
  "glam",
  "regnum-app",
  "regnum-assets",
+ "regnum-game",
  "regnum-renderer",
 ]
 

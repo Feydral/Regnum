@@ -1,5 +1,6 @@
 mod camera_controller;
 mod game;
+mod terrain;
 
 use game::Game;
 
