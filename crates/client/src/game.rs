@@ -1,14 +1,13 @@
 use std::{collections::HashMap, sync::Arc};
 
 use glam::{IVec3, Vec3};
-use regnum_app::{Application, Input};
 use regnum_assets::{AssetManager, Handle, Mesh, Model, Texture, Transform};
 use regnum_game::world::{
     WorldData, block::Block, chunk_data::ChunkData, mesher::generate_mesh, registry::BlockRegistry,
 };
 use regnum_renderer::{Camera, Frame};
 
-use crate::{camera_controller::CameraController, terrain};
+use crate::{camera_controller::CameraController, input::Input, terrain};
 
 const ATLAS_PATH: &str = "assets/textures/TextureAtlas.png";
 const BLOCKS_PATH: &str = "assets/blocks";
@@ -68,10 +67,8 @@ impl Game {
             self.chunk_meshes.insert(position, assets.add(mesh));
         }
     }
-}
 
-impl Application for Game {
-    fn load(&mut self, assets: &mut AssetManager) {
+    pub fn load(&mut self, assets: &mut AssetManager) {
         let atlas = Texture::load_png(ATLAS_PATH)
             .unwrap_or_else(|_| Texture::new(1, 1, vec![255, 0, 255, 255]));
         self.atlas = Some(assets.add(atlas));
@@ -80,7 +77,7 @@ impl Application for Game {
         self.mesh_world(assets);
     }
 
-    fn unload(&mut self, assets: &mut AssetManager) {
+    pub fn unload(&mut self, assets: &mut AssetManager) {
         if let Some(atlas) = self.atlas.take() {
             assets.remove(atlas);
         }
@@ -95,11 +92,11 @@ impl Application for Game {
         }
     }
 
-    fn update(&mut self, dt: f32, input: &Input, _assets: &mut AssetManager) {
+    pub fn update(&mut self, dt: f32, input: &Input) {
         self.controller.update(&mut self.camera, input, dt);
     }
 
-    fn render(&self) -> Frame {
+    pub fn render(&self) -> Frame {
         let models = self
             .atlas
             .map(|texture| {

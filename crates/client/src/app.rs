@@ -11,24 +11,24 @@ use winit::{
     window::{CursorGrabMode, Window, WindowId},
 };
 
-use crate::{Application, Input, Key, timestep::FixedTimestep};
+use crate::{game::Game, input::Input};
 
-struct App<G: Application> {
+struct App {
     window: Option<Arc<Window>>,
     renderer: Option<Renderer>,
 
     assets: AssetManager,
     input: Input,
-    game: G,
+    game: Game,
 
     captured: bool,
     last_frame: Instant,
-    timestep: FixedTimestep,
 }
 
-impl<G: Application> App<G> {
-    fn new(mut game: G) -> Self {
+impl App {
+    fn new() -> Self {
         let mut assets = AssetManager::default();
+        let mut game = Game::new();
         game.load(&mut assets);
 
         Self {
@@ -39,7 +39,6 @@ impl<G: Application> App<G> {
             game,
             captured: false,
             last_frame: Instant::now(),
-            timestep: FixedTimestep::default(),
         }
     }
 
@@ -63,7 +62,7 @@ impl<G: Application> App<G> {
     }
 }
 
-impl<G: Application> ApplicationHandler for App<G> {
+impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_some() {
             return;
@@ -84,15 +83,12 @@ impl<G: Application> ApplicationHandler for App<G> {
             }
         };
 
-        let size = window.inner_size();
+        renderer.request_redraw();
 
         self.window = Some(window);
         self.renderer = Some(renderer);
         self.last_frame = Instant::now();
-        self.game.resize(size.width.max(1), size.height.max(1));
         self.set_captured(true);
-
-        self.renderer.as_ref().unwrap().request_redraw();
     }
 
     fn window_event(
@@ -101,20 +97,14 @@ impl<G: Application> ApplicationHandler for App<G> {
         _window_id: WindowId,
         event: WindowEvent,
     ) {
-        if self.renderer.is_none() {
+        let Some(renderer) = &mut self.renderer else {
             return;
-        }
+        };
 
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
 
-            WindowEvent::Resized(size) if size.width > 0 && size.height > 0 => {
-                self.renderer
-                    .as_mut()
-                    .unwrap()
-                    .resize(size.width, size.height);
-                self.game.resize(size.width, size.height);
-            }
+            WindowEvent::Resized(size) => renderer.resize(size.width, size.height),
 
             WindowEvent::Focused(false) => self.set_captured(false),
 
@@ -124,15 +114,11 @@ impl<G: Application> ApplicationHandler for App<G> {
                 ..
             } if !self.captured => self.set_captured(true),
 
-            WindowEvent::KeyboardInput { event, .. } => {
+            WindowEvent::KeyboardInput { event, .. } if !event.repeat => {
                 let PhysicalKey::Code(code) = event.physical_key else {
                     return;
                 };
                 let pressed = event.state == ElementState::Pressed;
-
-                if event.repeat {
-                    return;
-                }
 
                 if pressed && code == KeyCode::Escape {
                     if self.captured {
@@ -140,11 +126,8 @@ impl<G: Application> ApplicationHandler for App<G> {
                     } else {
                         event_loop.exit();
                     }
-                    return;
-                }
-
-                if let Some(key) = Key::from_winit(code) {
-                    self.input.set_key(key, pressed);
+                } else {
+                    self.input.set_key(code, pressed);
                 }
             }
 
@@ -153,19 +136,10 @@ impl<G: Application> ApplicationHandler for App<G> {
                 let dt = (now - self.last_frame).as_secs_f32().min(0.1);
                 self.last_frame = now;
 
-                let step = self.game.fixed_timestep();
-                for _ in 0..self.timestep.advance(dt, step) {
-                    self.game.fixed_update(step, &mut self.assets);
-                }
-
-                self.game.pre_update(dt, &self.input, &mut self.assets);
-                self.game.update(dt, &self.input, &mut self.assets);
-                self.game.post_update(dt, &self.input, &mut self.assets);
+                self.game.update(dt, &self.input);
                 self.input.end_frame();
 
                 let frame = self.game.render();
-
-                let renderer = self.renderer.as_mut().unwrap();
                 if let Err(error) = renderer.render(&frame, &mut self.assets) {
                     eprintln!("Rendering failed: {error:#}");
                     event_loop.exit();
@@ -200,12 +174,11 @@ impl<G: Application> ApplicationHandler for App<G> {
     }
 }
 
-pub fn run<G: Application>(game: G) -> Result<()> {
+pub fn run() -> Result<()> {
     let event_loop = EventLoop::new()?;
     event_loop.set_control_flow(ControlFlow::Poll);
 
-    let mut app = App::new(game);
-    event_loop.run_app(&mut app)?;
+    event_loop.run_app(&mut App::new())?;
 
     Ok(())
 }

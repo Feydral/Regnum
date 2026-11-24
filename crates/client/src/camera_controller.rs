@@ -1,5 +1,7 @@
-use regnum_app::{Input, Key};
 use regnum_renderer::Camera;
+use winit::keyboard::KeyCode;
+
+use crate::input::Input;
 
 pub struct CameraController {
     pub speed: f32,
@@ -17,10 +19,11 @@ impl CameraController {
         camera.pitch =
             (camera.pitch - dy * self.sensitivity).clamp(-89f32.to_radians(), 89f32.to_radians());
 
-        let axis = |pos: Key, neg: Key| {
+        let axis = |pos: KeyCode, neg: KeyCode| {
             input.key_down(pos) as i8 as f32 - input.key_down(neg) as i8 as f32
         };
-        let wish = camera.forward() * axis(Key::W, Key::S) + camera.right() * axis(Key::D, Key::A);
+        let wish = camera.forward() * axis(KeyCode::KeyW, KeyCode::KeyS)
+            + camera.right() * axis(KeyCode::KeyD, KeyCode::KeyA);
 
         camera.position += wish.normalize_or_zero() * self.speed * dt;
     }

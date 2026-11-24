@@ -6,7 +6,8 @@ edition.workspace = true
 [dependencies]
 anyhow.workspace = true
 glam.workspace = true
-regnum-app.workspace = true
+pollster.workspace = true
 regnum-assets.workspace = true
 regnum-game.workspace = true
 regnum-renderer.workspace = true
+winit.workspace = true
