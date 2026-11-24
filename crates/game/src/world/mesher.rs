@@ -4,6 +4,7 @@ use glam::{IVec3, UVec3, Vec2, Vec3};
 use regnum_assets::{Mesh, Vertex};
 
 use crate::world::{
+    block::Block,
     chunk_data::ChunkData,
     registry::{
         BlockRegistry,
@@ -11,7 +12,7 @@ use crate::world::{
     },
 };
 
-pub type Neighbors = [Arc<ChunkData>; 6];
+pub type Neighbors = [Option<Arc<ChunkData>>; 6];
 
 const PADDED: usize = ChunkData::SIZE as usize + 2;
 
@@ -82,6 +83,9 @@ fn padded_models<'a>(
     let origin = chunk
         .get_block(UVec3::ZERO)
         .expect("origin is inside the chunk");
+    let solid = &Block::by_name("default_opaque", registry)
+        .state(registry)
+        .model;
     let mut models = vec![&origin.state(registry).model; PADDED * PADDED * PADDED];
 
     for (position, block) in chunk.iter_blocks() {
@@ -103,14 +107,16 @@ fn padded_models<'a>(
                     _ => IVec3::new(a, b, fixed),
                 };
 
-                let block = neighbor
-                    .get_block(
-                        local
-                            .rem_euclid(IVec3::splat(ChunkData::SIZE as i32))
-                            .as_uvec3(),
-                    )
-                    .expect("position is wrapped into the chunk");
-                models[padded_index(local)] = &block.state(registry).model;
+                models[padded_index(local)] = neighbor.as_ref().map_or(solid, |neighbor| {
+                    let block = neighbor
+                        .get_block(
+                            local
+                                .rem_euclid(IVec3::splat(ChunkData::SIZE as i32))
+                                .as_uvec3(),
+                        )
+                        .expect("position is wrapped into the chunk");
+                    &block.state(registry).model
+                });
             }
         }
     }

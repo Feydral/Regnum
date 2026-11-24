@@ -1,13 +1,13 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use glam::{IVec3, Vec3};
 use regnum_assets::{AssetManager, Handle, Mesh, Model, Texture, Transform};
 use regnum_game::world::{
-    WorldData, block::Block, chunk_data::ChunkData, mesher::generate_mesh, registry::BlockRegistry,
+    WorldData, chunk_data::ChunkData, mesher::generate_mesh, registry::BlockRegistry, terrain,
 };
 use regnum_renderer::{Camera, Frame};
 
-use crate::{camera_controller::CameraController, input::Input, terrain};
+use crate::{camera_controller::CameraController, input::Input};
 
 const ATLAS_PATH: &str = "assets/textures/TextureAtlas.png";
 const BLOCKS_PATH: &str = "assets/blocks";
@@ -45,19 +45,13 @@ impl Game {
     }
 
     fn mesh_world(&mut self, assets: &mut AssetManager) {
-        let air = Arc::new(ChunkData::new(Block::by_name("air", &self.registry)));
-        let positions: Vec<IVec3> = self.world.iter_loaded_positions().collect();
-
-        for position in positions {
+        for position in self.world.iter_loaded_positions() {
             let Some(chunk) = self.world.get_chunk_arc(position) else {
                 continue;
             };
 
-            let neighbors = ChunkData::NEIGHBOR_OFFSETS.map(|offset| {
-                self.world
-                    .get_chunk_arc(position + offset)
-                    .unwrap_or_else(|| air.clone())
-            });
+            let neighbors = ChunkData::NEIGHBOR_OFFSETS
+                .map(|offset| self.world.get_chunk_arc(position + offset));
 
             let mesh = generate_mesh(chunk, neighbors, &self.registry);
             if mesh.indices.is_empty() {
