@@ -1,7 +1,11 @@
+use std::{collections::HashMap, sync::Arc};
+
 use glam::{IVec3, Vec3};
-use regnum_app::{Application, Input, Key};
+use regnum_app::{Application, Input};
 use regnum_assets::{AssetManager, Handle, Mesh, Model, Texture, Transform};
-use regnum_game::world::{WorldData, registry::BlockRegistry};
+use regnum_game::world::{
+    WorldData, block::Block, chunk_data::ChunkData, mesher::generate_mesh, registry::BlockRegistry,
+};
 use regnum_renderer::{Camera, Frame};
 
 use crate::{camera_controller::CameraController, terrain};
@@ -13,52 +17,25 @@ const WORLD_RADIUS: i32 = 2;
 pub struct Game {
     camera: Camera,
     controller: CameraController,
-    cube: Option<Handle<Mesh>>,
     atlas: Option<Handle<Texture>>,
     registry: BlockRegistry,
     world: WorldData,
+    chunk_meshes: HashMap<IVec3, Handle<Mesh>>,
 }
 
 impl Game {
     pub fn new() -> Self {
         Self {
-            camera: Camera::new(Vec3::new(0.0, 0.0, 2.0), -90.0, 0.0),
-            controller: CameraController::new(2.0, 0.0022),
-            cube: None,
+            camera: Camera::new(Vec3::new(16.0, 40.0, 120.0), -90.0, -20.0),
+            controller: CameraController::new(20.0, 0.0022),
             atlas: None,
             registry: BlockRegistry::load_from_directory(BLOCKS_PATH),
             world: WorldData::new(),
+            chunk_meshes: HashMap::new(),
         }
     }
 
-    fn recolor_cube(&self, assets: &mut AssetManager) {
-        let Some(cube) = self.cube else { return };
-
-        if let Some(mesh) = assets.get_mut(cube) {
-            for vertex in &mut mesh.vertices {
-                let n = vertex.normal;
-                vertex.normal = Vec3::new(n.z, n.x, n.y);
-            }
-        }
-    }
-
-    fn toggle_cube(&mut self, assets: &mut AssetManager) {
-        match self.cube.take() {
-            Some(cube) => {
-                assets.remove(cube);
-            }
-            None => self.cube = Some(assets.add(Mesh::cube(0.5))),
-        }
-    }
-}
-
-impl Application for Game {
-    fn load(&mut self, assets: &mut AssetManager) {
-        self.cube = Some(assets.add(Mesh::cube(0.5)));
-        let atlas = Texture::load_png(ATLAS_PATH)
-            .unwrap_or_else(|_| Texture::new(1, 1, vec![255, 0, 255, 255]));
-        self.atlas = Some(assets.add(atlas));
-
+    fn generate_world(&mut self) {
         for z in -WORLD_RADIUS..=WORLD_RADIUS {
             for x in -WORLD_RADIUS..=WORLD_RADIUS {
                 let position = IVec3::new(x, 0, z);
@@ -68,12 +45,48 @@ impl Application for Game {
         }
     }
 
-    fn unload(&mut self, assets: &mut AssetManager) {
-        if let Some(cube) = self.cube.take() {
-            assets.remove(cube);
+    fn mesh_world(&mut self, assets: &mut AssetManager) {
+        let air = Arc::new(ChunkData::new(Block::by_name("air", &self.registry)));
+        let positions: Vec<IVec3> = self.world.iter_loaded_positions().collect();
+
+        for position in positions {
+            let Some(chunk) = self.world.get_chunk_arc(position) else {
+                continue;
+            };
+
+            let neighbors = ChunkData::NEIGHBOR_OFFSETS.map(|offset| {
+                self.world
+                    .get_chunk_arc(position + offset)
+                    .unwrap_or_else(|| air.clone())
+            });
+
+            let mesh = generate_mesh(chunk, neighbors, &self.registry);
+            if mesh.indices.is_empty() {
+                continue;
+            }
+
+            self.chunk_meshes.insert(position, assets.add(mesh));
         }
+    }
+}
+
+impl Application for Game {
+    fn load(&mut self, assets: &mut AssetManager) {
+        let atlas = Texture::load_png(ATLAS_PATH)
+            .unwrap_or_else(|_| Texture::new(1, 1, vec![255, 0, 255, 255]));
+        self.atlas = Some(assets.add(atlas));
+
+        self.generate_world();
+        self.mesh_world(assets);
+    }
+
+    fn unload(&mut self, assets: &mut AssetManager) {
         if let Some(atlas) = self.atlas.take() {
             assets.remove(atlas);
+        }
+
+        for (_, mesh) in self.chunk_meshes.drain() {
+            assets.remove(mesh);
         }
 
         let positions: Vec<IVec3> = self.world.iter_loaded_positions().collect();
@@ -82,30 +95,30 @@ impl Application for Game {
         }
     }
 
-    fn update(&mut self, dt: f32, input: &Input, assets: &mut AssetManager) {
+    fn update(&mut self, dt: f32, input: &Input, _assets: &mut AssetManager) {
         self.controller.update(&mut self.camera, input, dt);
-
-        if input.key_pressed(Key::R) {
-            self.recolor_cube(assets);
-        }
-        if input.key_pressed(Key::X) {
-            self.toggle_cube(assets);
-        }
     }
 
     fn render(&self) -> Frame {
+        let models = self
+            .atlas
+            .map(|texture| {
+                self.chunk_meshes
+                    .iter()
+                    .map(|(&position, &mesh)| Model {
+                        mesh,
+                        texture,
+                        transform: Transform::from_position(
+                            WorldData::chunk_to_world(position).as_vec3(),
+                        ),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
         Frame {
             camera: self.camera.clone(),
-            models: self
-                .cube
-                .zip(self.atlas)
-                .map(|(mesh, texture)| Model {
-                    mesh,
-                    texture,
-                    transform: Transform::IDENTITY,
-                })
-                .into_iter()
-                .collect(),
+            models,
         }
     }
 }
