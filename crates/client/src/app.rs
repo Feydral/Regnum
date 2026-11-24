@@ -136,7 +136,7 @@ impl ApplicationHandler for App {
                 let dt = (now - self.last_frame).as_secs_f32().min(0.1);
                 self.last_frame = now;
 
-                self.game.update(dt, &self.input);
+                self.game.update(dt, &self.input, &mut self.assets);
                 self.input.end_frame();
 
                 let frame = self.game.render();

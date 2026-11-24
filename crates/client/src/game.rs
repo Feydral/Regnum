@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use glam::{IVec3, Vec3};
 use regnum_assets::{AssetManager, Handle, Mesh, Model, Texture, Transform};
@@ -20,6 +20,7 @@ pub struct Game {
     registry: BlockRegistry,
     world: WorldData,
     chunk_meshes: HashMap<IVec3, Handle<Mesh>>,
+    dirty: HashSet<IVec3>,
 }
 
 impl Game {
@@ -31,6 +32,7 @@ impl Game {
             registry: BlockRegistry::load_from_directory(BLOCKS_PATH),
             world: WorldData::new(),
             chunk_meshes: HashMap::new(),
+            dirty: HashSet::new(),
         }
     }
 
@@ -40,12 +42,26 @@ impl Game {
                 let position = IVec3::new(x, 0, z);
                 self.world
                     .set_chunk(position, terrain::generate_chunk(&self.registry, position));
+                self.mark_dirty(position);
             }
         }
     }
 
-    fn mesh_world(&mut self, assets: &mut AssetManager) {
-        for position in self.world.iter_loaded_positions() {
+    fn mark_dirty(&mut self, position: IVec3) {
+        self.dirty.insert(position);
+        self.dirty.extend(
+            ChunkData::NEIGHBOR_OFFSETS
+                .iter()
+                .map(|offset| position + offset),
+        );
+    }
+
+    fn remesh_dirty(&mut self, assets: &mut AssetManager) {
+        for position in self.dirty.drain() {
+            if let Some(handle) = self.chunk_meshes.remove(&position) {
+                assets.remove(handle);
+            }
+
             let Some(chunk) = self.world.get_chunk_arc(position) else {
                 continue;
             };
@@ -54,11 +70,9 @@ impl Game {
                 .map(|offset| self.world.get_chunk_arc(position + offset));
 
             let mesh = generate_mesh(chunk, neighbors, &self.registry);
-            if mesh.indices.is_empty() {
-                continue;
+            if !mesh.indices.is_empty() {
+                self.chunk_meshes.insert(position, assets.add(mesh));
             }
-
-            self.chunk_meshes.insert(position, assets.add(mesh));
         }
     }
 
@@ -68,7 +82,6 @@ impl Game {
         self.atlas = Some(assets.add(atlas));
 
         self.generate_world();
-        self.mesh_world(assets);
     }
 
     pub fn unload(&mut self, assets: &mut AssetManager) {
@@ -79,6 +92,7 @@ impl Game {
         for (_, mesh) in self.chunk_meshes.drain() {
             assets.remove(mesh);
         }
+        self.dirty.clear();
 
         let positions: Vec<IVec3> = self.world.iter_loaded_positions().collect();
         for position in positions {
@@ -86,8 +100,9 @@ impl Game {
         }
     }
 
-    pub fn update(&mut self, dt: f32, input: &Input) {
+    pub fn update(&mut self, dt: f32, input: &Input, assets: &mut AssetManager) {
         self.controller.update(&mut self.camera, input, dt);
+        self.remesh_dirty(assets);
     }
 
     pub fn render(&self) -> Frame {
